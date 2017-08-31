@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -xe
+
 PROJ_ROOT=$PWD
 SUFFIX=
 
