@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -xe
+
+PROJ_ROOT=$PWD
+SUFFIX=
+
+SOURCES_ROOT=$PROJ_ROOT/..
+
+source common.sh
+
+export CC=clang
+export CXX=clang++
+
+cd $BUILD_ROOT
+cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
+      -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DCMAKE_C_FLAGS_RELWITHDEBINFO='-O3' \
+      -DCMAKE_CXX_FLAGS_RELWITHDEBINFO='-O3' \
+      -DWITH_PYTHON=ON \
+      -DWITH_SWIG_PY=ON \
+      -DWITH_GPU=OFF \
+      -DWITH_MKLML=OFF \
+      -DWITH_MKLDNN=OFF \
+      -DWITH_GOLANG=OFF \
+      -DWITH_STYLE_CHECK=OFF \
+      $SOURCES_ROOT
+
+cd $PROJ_ROOT
+
