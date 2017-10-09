@@ -11,6 +11,11 @@ source common.sh
 
 unset MKL_ROOT
 C_API=OFF
+if [ $# -ge 1 ]; then
+    if [ $1 -eq 1 ]; then
+        C_API=ON
+    fi
+fi
 
 cd $BUILD_ROOT
 if [ $C_API == OFF ]; then
