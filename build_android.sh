@@ -10,7 +10,7 @@ SOURCES_ROOT=$PROJ_ROOT/..
 source common.sh
 
 ABI=0
-if [ $# -eq 1 ]; then
+if [ $# -ge 1 ]; then
     ABI=$1
 fi
 
