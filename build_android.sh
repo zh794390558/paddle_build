@@ -1,13 +1,22 @@
-#!/bin/bash
+#!/bin/sh
 
 set -xe
 
 PROJ_ROOT=$PWD
 SUFFIX=_android
 
+TP_SUFFIX=_gcc
+USE_EIGEN=OFF
+if [ $USE_EIGEN == ON ]; then
+    TP_SUFFIX=${TP_SUFFIX}_eigen
+else
+    TP_SUFFIX=${TP_SUFFIX}_openblas
+fi
+
 SOURCES_ROOT=$PROJ_ROOT/..
 
 source common.sh
+THIRD_PARTY_PATH=${THIRD_PARTY_PATH}${TP_SUFFIX}
 
 ABI=0
 if [ $# -ge 1 ]; then
@@ -17,7 +26,7 @@ fi
 unset MKL_ROOT
 unset OPENBLAS_ROOT
 
-cd $BUILD_ROOT
+cd ${BUILD_ROOT}
 if [ $ABI -eq 32 ]; then
     ANDROID_ABI=armeabi-v7a
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
@@ -43,6 +52,7 @@ elif [ $ABI -eq 64 ]; then
           -DANDROID_STANDALONE_TOOLCHAIN=$ANDROID_ARM64_STANDALONE_TOOLCHAIN \
           -DANDROID_ABI=$ANDROID_ABI \
           -DANDROID_ARM_MODE=ON \
+          -DANDROID_TOOLCHAIN=gcc \
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_C_API=ON \
           -DWITH_SWIG_PY=OFF \
