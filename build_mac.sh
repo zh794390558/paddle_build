@@ -9,8 +9,8 @@ SOURCES_ROOT=$PROJ_ROOT/..
 
 source common.sh
 
-export CC=clang
-export CXX=clang++
+export CC=gcc
+export CXX=g++
 
 cd $BUILD_ROOT
 cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
