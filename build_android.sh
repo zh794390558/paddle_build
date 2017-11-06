@@ -19,7 +19,7 @@ source common.sh
 THIRD_PARTY_PATH=${THIRD_PARTY_PATH}${TP_SUFFIX}
 
 ABI=0
-if [ $# -eq 1 ]; then
+if [ $# -ge 1 ]; then
     ABI=$1
 fi
 
