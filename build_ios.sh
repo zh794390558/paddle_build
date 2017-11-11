@@ -22,10 +22,10 @@ if [ $ARCH == arm64 -o $ARCH == armv7 -o $ARCH == armv7s ]; then
           -DCMAKE_SYSTEM_NAME=iOS \
           -DIOS_PLATFORM=OS \
           -DIOS_ARCH="$ARCH" \
-          -DIOS_ENABLE_BITCODE=OFF \
+          -DIOS_ENABLE_BITCODE=ON \
           -DIOS_USE_VECLIB_FOR_BLAS=ON \
           -DWITH_C_API=ON \
-          -DWITH_TESTING=ON \
+          -DWITH_TESTING=OFF \
           -DWITH_SWIG_PY=OFF \
           -DWITH_STYLE_CHECK=OFF \
           -DCMAKE_BUILD_TYPE=Release \
