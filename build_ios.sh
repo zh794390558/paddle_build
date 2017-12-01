@@ -33,7 +33,7 @@ if [ $ARCH == os -o $ARCH == arm64 -o $ARCH == armv7 -o $ARCH == armv7s ]; then
           -DWITH_TESTING=OFF \
           -DWITH_SWIG_PY=OFF \
           -DWITH_STYLE_CHECK=OFF \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
           $SOURCES_ROOT
 elif [ $ARCH == simulator -o $ARCH == x86_64 -o $ARCH == i386 ]; then
     if [ $ARCH == simulator ]; then
@@ -52,7 +52,7 @@ elif [ $ARCH == simulator -o $ARCH == x86_64 -o $ARCH == i386 ]; then
           -DWITH_TESTING=OFF \
           -DWITH_SWIG_PY=OFF \
           -DWITH_STYLE_CHECK=OFF \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_TYPE=MinSizeRel \
           $SOURCES_ROOT
 fi
 
