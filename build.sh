@@ -21,11 +21,11 @@ cd $BUILD_ROOT
 if [ $C_API == OFF ]; then
   cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
         -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
+        -DCUDA_ARCH_NAME=Auto \
         -DCMAKE_BUILD_TYPE=Release \
         -DWITH_C_API=OFF \
         -DWITH_PYTHON=ON \
-        -DWITH_MKLML=OFF \
-        -DWITH_MKLDNN=OFF \
+        -DWITH_MKL=OFF \
         -DWITH_GPU=ON \
         -DCUDNN_ROOT=$CUDNN_ROOT \
         -DWITH_SWIG_PY=ON \
@@ -36,12 +36,13 @@ if [ $C_API == OFF ]; then
 else
   cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
         -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
+        -DCUDA_ARCH_NAME=Auto \
         -DCMAKE_BUILD_TYPE=Release \
         -DWITH_C_API=ON \
+        -DUSE_EIGEN_FOR_BLAS=ON \
         -DWITH_PYTHON=OFF \
-        -DWITH_MKLML=OFF \
-        -DWITH_MKLDNN=OFF \
-        -DWITH_GPU=ON \
+        -DWITH_MKL=OFF \
+        -DWITH_GPU=OFF \
         -DCUDNN_ROOT=$CUDNN_ROOT \
         -DWITH_SWIG_PY=OFF \
         -DWITH_GOLANG=OFF \

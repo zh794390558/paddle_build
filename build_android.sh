@@ -52,7 +52,6 @@ elif [ $ABI -eq 64 ]; then
           -DANDROID_STANDALONE_TOOLCHAIN=$ANDROID_ARM64_STANDALONE_TOOLCHAIN \
           -DANDROID_ABI=$ANDROID_ABI \
           -DANDROID_ARM_MODE=ON \
-          -DANDROID_TOOLCHAIN=gcc \
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_C_API=ON \
           -DWITH_SWIG_PY=OFF \
