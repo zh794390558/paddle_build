@@ -1,22 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 
 set -xe
 
 PROJ_ROOT=$PWD
 SUFFIX=_android
 
-TP_SUFFIX=_gcc
-USE_EIGEN=OFF
-if [ $USE_EIGEN == ON ]; then
-    TP_SUFFIX=${TP_SUFFIX}_eigen
-else
-    TP_SUFFIX=${TP_SUFFIX}_openblas
-fi
-
 SOURCES_ROOT=$PROJ_ROOT/..
 
 source common.sh
-THIRD_PARTY_PATH=${THIRD_PARTY_PATH}${TP_SUFFIX}
+THIRD_PARTY_PATH=${THIRD_PARTY_PATH}
 
 ABI=0
 if [ $# -ge 1 ]; then
@@ -36,14 +28,30 @@ if [ $ABI -eq 32 ]; then
           -DANDROID_ABI=$ANDROID_ABI \
           -DANDROID_ARM_NEON=ON \
           -DANDROID_ARM_MODE=ON \
+          -DANDROID_TOOLCHAIN=gcc \
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_C_API=ON \
           -DUSE_EIGEN_FOR_BLAS=ON \
           -DWITH_SWIG_PY=OFF \
-          -DWITH_GOLANG=OFF \
           -DWITH_STYLE_CHECK=OFF \
-          -DCMAKE_PREFIX_PATH="$JUMBO_ROOT" \
           $SOURCES_ROOT
+#    cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
+#          -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH/$ANDROID_ABI \
+#          -DCMAKE_SYSTEM_NAME=Android \
+#          -DANDROID_NDK=$ANDROID_NDK \
+#          -DANDROID_NATIVE_API_LEVEL=19 \
+#          -DANDROID_ABI=$ANDROID_ABI \
+#          -DANDROID_ARM_NEON=ON \
+#          -DANDROID_ARM_MODE=ON \
+#          -DANDROID_TOOLCHAIN=gcc \
+#          -DCMAKE_BUILD_TYPE=Release \
+#          -DWITH_C_API=ON \
+#          -DUSE_EIGEN_FOR_BLAS=ON \
+#          -DWITH_TESTING=ON \
+#          -DWITH_SWIG_PY=OFF \
+#          -DWITH_GOLANG=OFF \
+#          -DWITH_STYLE_CHECK=OFF \
+#          $SOURCES_ROOT
 elif [ $ABI -eq 64 ]; then
     ANDROID_ABI=arm64-v8a
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
@@ -52,10 +60,10 @@ elif [ $ABI -eq 64 ]; then
           -DANDROID_STANDALONE_TOOLCHAIN=$ANDROID_ARM64_STANDALONE_TOOLCHAIN \
           -DANDROID_ABI=$ANDROID_ABI \
           -DANDROID_ARM_MODE=ON \
+          -DANDROID_TOOLCHAIN=gcc \
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_C_API=ON \
           -DWITH_SWIG_PY=OFF \
-          -DWITH_GOLANG=OFF \
           -DWITH_STYLE_CHECK=OFF \
           -DCMAKE_PREFIX_PATH="$JUMBO_ROOT" \
           $SOURCES_ROOT
