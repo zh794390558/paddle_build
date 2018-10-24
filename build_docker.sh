@@ -7,18 +7,10 @@ SUFFIX=_docker
 
 SOURCES_ROOT=/paddle
 
-unset MKL_ROOT
 C_API=OFF
-if [ $# -ge 1 ]; then
-    if [ $1 -eq 1 ]; then
-        C_API=ON
-        SUFFIX=_capi
-    fi
-fi
 
 function cmake_gen() {
-  source common.sh
-
+  sh $PROJ_ROOT/clear.sh
   cd $BUILD_ROOT
   if [ $C_API == OFF ]; then
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
@@ -72,7 +64,7 @@ function build() {
   cd $BUILD_ROOT
   cat <<EOF
   ============================================
-  Building in $BUILD_ROOT ...
+  Building in $BUILD_ROOT
   ============================================
 EOF
   make -j8
@@ -81,12 +73,16 @@ EOF
 
 function main() {
   local CMD=$1
+  source $PROJ_ROOT/env.sh
   case $CMD in
     cmake)
       cmake_gen
       ;;
     build)
       build
+      ;;
+    run)
+      sh $PROJ_ROOT/run_docker.sh
       ;;
   esac
 }
