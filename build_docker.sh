@@ -2,15 +2,23 @@
 
 set -xe
 
+WITH_GPU=ON
+
 PROJ_ROOT=/paddle/build_paddle
-SUFFIX=_docker
+if [ $WITH_GPU == OFF ]; then
+  SUFFIX=_docker_cpu
+else
+  SUFFIX=_docker
+fi
 
 SOURCES_ROOT=/paddle
 
 C_API=OFF
 
 function cmake_gen() {
-  sh $PROJ_ROOT/clear.sh
+  export CC=gcc
+  export CXX=g++
+  source $PROJ_ROOT/clear.sh
   cd $BUILD_ROOT
   if [ $C_API == OFF ]; then
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
@@ -19,7 +27,7 @@ function cmake_gen() {
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_DSO=ON \
           -DWITH_DOC=OFF \
-          -DWITH_GPU=ON \
+          -DWITH_GPU=${WITH_GPU} \
           -DWITH_AMD_GPU=OFF \
           -DWITH_DISTRIBUTE=OFF \
           -DWITH_MKL=OFF \
@@ -67,7 +75,7 @@ function build() {
   Building in $BUILD_ROOT
   ============================================
 EOF
-  make -j8
+  make -j12
   cd $PROJ_ROOT
 }
 
@@ -83,6 +91,8 @@ function main() {
       ;;
     run)
       sh $PROJ_ROOT/run_docker.sh
+#      cd $BUILD_ROOT
+#      sh $PROJ_ROOT/run_test.sh
       ;;
   esac
 }
