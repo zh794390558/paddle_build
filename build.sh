@@ -17,7 +17,7 @@ if [ $# -ge 1 ]; then
 fi
 
 source env.sh
-sh clear.sh
+source clear.sh
 
 cd $BUILD_ROOT
 if [ $C_API == OFF ]; then
