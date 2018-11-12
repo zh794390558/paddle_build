@@ -31,12 +31,44 @@ export CUDA_VISIBLE_DEVICES=7
 #    --repeat=${REPEAT} \
 #    --batch_size=${BATCH_SIZE}
 
-DIRNAME=/data/InceptionV3_Model/InceptionV3_Model
-IMAGE_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
-$BUILD_ROOT/paddle/fluid/inference/tests/api/ocr_plate \
-    --dirname=${DIRNAME} \
-    --image_path=${IMAGE_PATH} \
+#MODEL_DIR=/data/InceptionV3_Model/InceptionV3_Model
+#DATA_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
+
+#MODEL_DIR=/data/video/VLAD_3s/stage1
+#MODEL_DIR=/data/video/fluid_lstm_first_v6_transmodel
+#MODEL_DIR=/data/video/Attention_3s/stage1
+#DATA_DIR=/data/video/data
+#MODEL_DIR=/data/faster_rcnn/faster_rcnn_resnet50
+#MODEL_DIR=/data/face/models/blur
+#IMAGE_DIMS=1x3x112x112
+#MODEL_DIR=/data/face/models/emotion
+#IMAGE_DIMS=1x3x144x128
+#INPUT_NAME=data
+#MODEL_DIR=/paddle/build_paddle/resnet50_model #image_dims=1x3x318x318
+
+#MODEL_DIR=/data/face/models/demark
+MODEL_DIR=/data/face/models/super_res
+IMAGE_DIMS=1x3x207x175
+INPUT_NAME=image
+
+#EXE_NAME=video_tester
+#EXE_NAME=ocr_plate_tester
+#EXE_NAME=faster_rcnn_tester
+EXE_NAME=image_tester
+
+$BUILD_ROOT/paddle/fluid/inference/tests/api/$EXE_NAME \
+    --model_dir=${MODEL_DIR} \
     --profile=1 \
-    --repeat=100 \
+    --repeat=1000 \
     --use_gpu=1 \
-    --use_tensorrt=0
+    --image_dims=${IMAGE_DIMS} \
+    --input_name=${INPUT_NAME} \
+    --use_tensorrt=1
+
+#--data_path=${DATA_PATH} \
+
+#cd $BUILD_ROOT
+#make test ARGS="-R test_analyzer_resnet50 -V"
+
+#$BUILD_ROOT/paddle/fluid/inference/tests/api/test_analyzer_resnet50 \
+#    --infer_model=/paddle/build_paddle/resnet50_model

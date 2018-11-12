@@ -37,7 +37,6 @@ if [ $C_API == OFF ]; then
         -DWITH_TESTING=ON \
         -DWITH_INFERENCE_API_TEST=ON \
         -DWITH_GOLANG=OFF \
-        -DCMAKE_PREFIX_PATH="$JUMBO_ROOT" \
         $SOURCES_ROOT
 else
   cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
