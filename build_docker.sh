@@ -40,7 +40,7 @@ function cmake_gen() {
           -DCUDNN_ROOT=/usr/ \
           -DWITH_TESTING=ON \
           -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake \
-          -DWITH_FLUID_ONLY=OFF \
+          -DWITH_FLUID_ONLY=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_CONTRIB=ON \
           -DWITH_INFERENCE_API_TEST=ON \
