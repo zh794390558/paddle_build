@@ -17,7 +17,7 @@ if [ $# -ge 1 ]; then
 fi
 
 source env.sh
-sh clear.sh
+source clear.sh
 
 cd $BUILD_ROOT
 if [ $C_API == OFF ]; then
@@ -37,7 +37,6 @@ if [ $C_API == OFF ]; then
         -DWITH_TESTING=ON \
         -DWITH_INFERENCE_API_TEST=ON \
         -DWITH_GOLANG=OFF \
-        -DCMAKE_PREFIX_PATH="$JUMBO_ROOT" \
         $SOURCES_ROOT
 else
   cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
