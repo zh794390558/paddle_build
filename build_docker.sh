@@ -25,6 +25,7 @@ function cmake_gen() {
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
           -DFLUID_INSTALL_DIR=$DEST_ROOT \
           -DCMAKE_BUILD_TYPE=Release \
+          -DON_INFER=ON \
           -DWITH_DSO=ON \
           -DWITH_DOC=OFF \
           -DWITH_GPU=${WITH_GPU} \
@@ -40,7 +41,7 @@ function cmake_gen() {
           -DCUDNN_ROOT=/usr/ \
           -DWITH_TESTING=ON \
           -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake \
-          -DWITH_FLUID_ONLY=OFF \
+          -DWITH_FLUID_ONLY=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_CONTRIB=ON \
           -DWITH_INFERENCE_API_TEST=ON \
