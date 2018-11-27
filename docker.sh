@@ -36,8 +36,10 @@ fi
 #    paddlepaddle/paddle:latest-dev \
 #    build_paddle/build_docker.sh run
 
-NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
-${NVIDIA_DOCKER_PATH}/nvidia-docker run --name paddle_trt --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
-    paddlepaddle/paddle:latest-dev \
+NAME=xreki/paddle
+TAG=cuda92_cudnn7
+#NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
+nvidia-docker run --name paddle_trt --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
+    $NAME:$TAG \
     build_paddle/build_docker.sh $TASK
 

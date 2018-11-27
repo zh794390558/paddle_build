@@ -25,7 +25,6 @@ function cmake_gen() {
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
           -DFLUID_INSTALL_DIR=$DEST_ROOT \
           -DCMAKE_BUILD_TYPE=Release \
-          -DON_INFER=ON \
           -DWITH_DSO=ON \
           -DWITH_DOC=OFF \
           -DWITH_GPU=${WITH_GPU} \
@@ -42,6 +41,7 @@ function cmake_gen() {
           -DWITH_TESTING=ON \
           -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake \
           -DWITH_FLUID_ONLY=ON \
+          -DON_INFER=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_CONTRIB=ON \
           -DWITH_INFERENCE_API_TEST=ON \
@@ -81,6 +81,7 @@ EOF
 function main() {
   local CMD=$1
   source $PROJ_ROOT/env.sh
+  git config --global http.sslverify false
   case $CMD in
     cmake)
       cmake_gen
