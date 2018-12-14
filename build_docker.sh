@@ -15,6 +15,8 @@ SOURCES_ROOT=/paddle
 
 C_API=OFF
 
+PPROF_ROOT=$SOURCES_ROOT/gperftools-2.7/install
+
 function cmake_gen() {
   export CC=gcc
   export CXX=g++
@@ -25,6 +27,8 @@ function cmake_gen() {
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
           -DFLUID_INSTALL_DIR=$DEST_ROOT \
           -DCMAKE_BUILD_TYPE=Release \
+          -DWITH_PPOFILER=ON \
+          -DGperftools_ROOT_DIR=${PPROF_ROOT} \
           -DON_INFER=ON \
           -DWITH_DSO=ON \
           -DWITH_DOC=OFF \
