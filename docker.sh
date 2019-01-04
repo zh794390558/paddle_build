@@ -11,6 +11,12 @@ if [ $# -ge 1 ]; then
   fi
 fi
 
+# docker build -t xreki/paddle:cuda92_cudnn7_debug .
+# docker login
+# username: xreki
+# password:
+# docker push xreki/paddle:cuda92_cudnn7_debug
+
 #CUDA_ROOT=/usr
 #CUDA_ROOT=/usr/local/cuda
 #export CUDA_SO="$(\ls ${CUDA_ROOT}/lib64/libcuda* | xargs -I{} echo '-v {}:{}') $(\ls ${CUDA_ROOT}/lib64/libnvidia* | xargs -I{} echo '-v {}:{}')"
@@ -37,9 +43,9 @@ fi
 #    build_paddle/build_docker.sh run
 
 NAME=xreki/paddle
-TAG=cuda92_cudnn7
+TAG=cuda92_cudnn7_debug
 #NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
-nvidia-docker run --name paddle_trt --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
+nvidia-docker run --name paddle_xreki --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
     $NAME:$TAG \
     build_paddle/build_docker.sh $TASK
 

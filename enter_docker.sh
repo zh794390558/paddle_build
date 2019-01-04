@@ -23,8 +23,10 @@ set -xe
 #    paddlepaddle/paddle:latest-dev \
 #    paddle/scripts/paddle_build.sh build
 
-NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
-${NVIDIA_DOCKER_PATH}/nvidia-docker run --name paddle_trt_enter --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
-    paddlepaddle/paddle:latest-dev \
+NAME=xreki/paddle
+TAG=cuda92_cudnn7_debug
+#NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
+nvidia-docker run --name paddle_xreki_enter --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
+    $NAME:$TAG \
     bash
 

@@ -24,7 +24,9 @@ function cmake_gen() {
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
           -DFLUID_INSTALL_DIR=$DEST_ROOT \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+          -DWITH_PROFILER=ON \
+          -DGperftools_ROOT_DIR=/usr/local/lib \
           -DWITH_DSO=ON \
           -DWITH_DOC=OFF \
           -DWITH_GPU=${WITH_GPU} \
