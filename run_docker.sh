@@ -22,7 +22,7 @@ BUILD_ROOT=/paddle/build_paddle/build_docker$SUFFIX
 #DIRNAME=/home/liuyiqun01/PaddlePaddle/inference/mobilenet-ssd
 
 #export FLAGS_fraction_of_gpu_memory_to_use=0.1
-#export GLOG_v=30
+#export GLOG_v=3
 unset CUDA_VISIBLE_DEVICES
 export CUDA_VISIBLE_DEVICES=7
 #export FLAGS_benchmark=1
@@ -39,19 +39,15 @@ export CUDA_VISIBLE_DEVICES=7
 #DATA_DIR=/data/video/data
 
 #MODEL_DIR=/data/faster_rcnn/faster_rcnn_resnet50
-#EXE_NAME=faster_rcnn_tester
-#$BUILD_ROOT/paddle/fluid/inference/tests/api/$EXE_NAME \
-#    --model_dir=${MODEL_DIR} \
-#    --profile=1 \
-#    --repeat=100 \
-#    --use_gpu=1 \
-#    --use_tensorrt=0
 
 # ocr models
 #MODEL_DIR=/data/ocr/InceptionV3_Model/InceptionV3_Model
 #DATA_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
 #MODEL_DIR=/data/ocr/1d-attention/models/origin
-MODEL_DIR=/data/ocr/1d-attention/models/opt_1
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_2
+#MODEL_DIR=/data/ocr/dinge/models/origin
+MODEL_DIR=/data/ocr/dinge/models/opt_1
+IMAGE_PATH=/data/ocr/dinge/data/20180731-25eba0223dd94efab993ea9704f304b0_3.jpg.txt
 
 #MODEL_DIR=/data/face/models/blur
 #IMAGE_PATH=/data/face/images/blur.txt
@@ -61,19 +57,23 @@ MODEL_DIR=/data/ocr/1d-attention/models/opt_1
 #MODEL_DIR=/data/face/models/pars
 
 #EXE_NAME=video_tester
+#EXE_NAME=faster_rcnn_tester
 EXE_NAME=ocr_plate_tester
 $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
     --infer_model=${MODEL_DIR} \
-    --profile=0 \
+    --profile=1 \
     --repeat=100 \
     --prog_filename="model" \
     --param_filename="params" \
+    --image_dims="400x400" \
+    --image_path=${IMAGE_PATH} \
+    --use_gpu=1 \
     --use_analysis=0 \
     --use_tensorrt=0
 
 
 #cd $BUILD_ROOT
-#make test ARGS="-R test_trt_elementwise_op -V"
+#make test ARGS="-R test_profiler -V"
 
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_analyzer_resnet50 \
 #    --infer_model=/paddle/build_paddle/resnet50_model
@@ -85,8 +85,8 @@ $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_trt_models \
 #    --infer_model=${MODEL_DIR} \
 #    --profile=0 \
-#    --use_tensorrt=1 \
-#    --prog_filename="model" \
-#    --param_filename="params" \
+#    --use_tensorrt=0 \
 #    --repeat=100
 
+#    --prog_filename="model" \
+#    --param_filename="params" \

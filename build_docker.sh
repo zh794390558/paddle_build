@@ -27,6 +27,7 @@ function cmake_gen() {
           -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DWITH_PROFILER=ON \
           -DGperftools_ROOT_DIR=/usr/local/lib \
+          -DON_INFER=ON \
           -DWITH_DSO=ON \
           -DWITH_DOC=OFF \
           -DWITH_GPU=${WITH_GPU} \
