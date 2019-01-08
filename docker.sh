@@ -13,6 +13,12 @@ if [ $# -ge 1 ]; then
   fi
 fi
 
+# docker build -t xreki/paddle:cuda92_cudnn7_debug .
+# docker login
+# username: xreki
+# password:
+# docker push xreki/paddle:cuda92_cudnn7_debug
+
 #CUDA_ROOT=/usr
 #CUDA_ROOT=/usr/local/cuda
 #export CUDA_SO="$(\ls ${CUDA_ROOT}/lib64/libcuda* | xargs -I{} echo '-v {}:{}') $(\ls ${CUDA_ROOT}/lib64/libnvidia* | xargs -I{} echo '-v {}:{}')"

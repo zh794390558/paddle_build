@@ -19,6 +19,8 @@ fi
 source env.sh
 source clear.sh
 
+unset TENSORRT_ROOT
+
 cd $BUILD_ROOT
 if [ $C_API == OFF ]; then
   cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
@@ -27,6 +29,7 @@ if [ $C_API == OFF ]; then
         -DCUDA_ARCH_NAME=Auto \
         -DCMAKE_BUILD_TYPE=Release \
         -DWITH_FLUID_ONLY=OFF \
+        -DON_INFER=ON \
         -DWITH_C_API=OFF \
         -DWITH_PYTHON=ON \
         -DWITH_MKL=OFF \

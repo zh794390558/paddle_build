@@ -21,7 +21,7 @@ BUILD_ROOT=/paddle/build_paddle/build_docker${DOCKER_SUFFIX}
 #DIRNAME=/home/liuyiqun01/PaddlePaddle/inference/paddle_test/fluid_model/model
 #DIRNAME=/home/liuyiqun01/PaddlePaddle/inference/mobilenet-ssd
 
-export FLAGS_fraction_of_gpu_memory_to_use=0.1
+#export FLAGS_fraction_of_gpu_memory_to_use=0.1
 #export GLOG_v=3
 unset CUDA_VISIBLE_DEVICES
 export CUDA_VISIBLE_DEVICES=0
@@ -33,21 +33,27 @@ export LD_LIBRARY_PATH=/paddle/gperftools-2.7/install/lib:$LD_LIBRARY_PATH
 #    --repeat=${REPEAT} \
 #    --batch_size=${BATCH_SIZE}
 
-#MODEL_DIR=/data/InceptionV3_Model/InceptionV3_Model
-#DATA_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
 
+# video models
 #MODEL_DIR=/data/video/VLAD_3s/stage1
 #MODEL_DIR=/data/video/fluid_lstm_first_v6_transmodel
 #MODEL_DIR=/data/video/Attention_3s/stage1
 #DATA_DIR=/data/video/data
-#MODEL_DIR=/data/faster_rcnn/faster_rcnn_resnet50
-#MODEL_DIR=/data/face/models/blur
-#IMAGE_DIMS=1x3x112x112
-#MODEL_DIR=/data/face/models/emotion
-#IMAGE_DIMS=1x3x144x128
-#INPUT_NAME=data
-#MODEL_DIR=/paddle/build_paddle/resnet50_model #image_dims=1x3x318x318
 
+#MODEL_DIR=/data/faster_rcnn/faster_rcnn_resnet50
+
+# ocr models
+#MODEL_DIR=/data/ocr/InceptionV3_Model/InceptionV3_Model
+#DATA_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
+#MODEL_DIR=/data/ocr/1d-attention/models/origin
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_2
+#MODEL_DIR=/data/ocr/dinge/models/origin
+MODEL_DIR=/data/ocr/dinge/models/opt_1
+IMAGE_PATH=/data/ocr/dinge/data/20180731-25eba0223dd94efab993ea9704f304b0_3.jpg.txt
+
+#MODEL_DIR=/data/face/models/blur
+#IMAGE_PATH=/data/face/images/blur.txt
+#MODEL_DIR=/data/face/models/emotion
 #MODEL_DIR=/data/face/models/demark
 #MODEL_DIR=/data/face/models/super_res
 #IMAGE_DIMS=1x3x207x175
@@ -91,7 +97,20 @@ fi
 
 
 #cd $BUILD_ROOT
-#make test ARGS="-R test_analyzer_resnet50 -V"
+#make test ARGS="-R test_profiler -V"
 
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_analyzer_resnet50 \
 #    --infer_model=/paddle/build_paddle/resnet50_model
+#MODEL_DIR=/data/facebox_model_remove_ops
+#MODEL_DIR=/paddle/build_paddle/resnet50_model #image_dims=1x3x318x318
+#MODEL_DIR=/paddle/build_paddle/trt_test_models
+#MODEL_DIR=/data/se_resnext_50/se_resnext
+#MODEL_DIR=/data/se_resnext_50/models
+#$BUILD_ROOT/paddle/fluid/inference/tests/api/test_trt_models \
+#    --infer_model=${MODEL_DIR} \
+#    --profile=0 \
+#    --use_tensorrt=0 \
+#    --repeat=100
+
+#    --prog_filename="model" \
+#    --param_filename="params" \
