@@ -45,7 +45,8 @@ fi
 NAME=xreki/paddle
 TAG=cuda92_cudnn7_debug
 #NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
-nvidia-docker run --name paddle_xreki --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
+nvidia-docker run --name paddle_xreki --network=host -it --rm \
+    -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -v $PWD/../../models:/models -w /paddle \
     $NAME:$TAG \
     build_paddle/build_docker.sh $TASK
 

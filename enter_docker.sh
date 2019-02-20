@@ -26,7 +26,11 @@ set -xe
 NAME=xreki/paddle
 TAG=cuda92_cudnn7_debug
 #NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
-nvidia-docker run --name paddle_xreki_enter --network=host -it --rm -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -w /paddle \
+nvidia-docker run --name paddle_xreki_enter --network=host -it --rm \
+    -v $PWD/../../Paddle:/paddle \
+    -v $PWD/../../models:/models \
+    -v $PWD/../../inference:/data \
+    -w /paddle \
     $NAME:$TAG \
     bash
 

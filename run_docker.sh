@@ -22,9 +22,10 @@ BUILD_ROOT=/paddle/build_paddle/build_docker$SUFFIX
 #DIRNAME=/home/liuyiqun01/PaddlePaddle/inference/mobilenet-ssd
 
 #export FLAGS_fraction_of_gpu_memory_to_use=0.1
-#export GLOG_v=3
+#export GLOG_v=4
 unset CUDA_VISIBLE_DEVICES
-export CUDA_VISIBLE_DEVICES=7
+export CUDA_VISIBLE_DEVICES=2
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 #export FLAGS_benchmark=1
 #./paddle/fluid/inference/tests/book/test_inference_${NAME} \
 #    --dirname=${DIRNAME} \
@@ -44,10 +45,13 @@ export CUDA_VISIBLE_DEVICES=7
 #MODEL_DIR=/data/ocr/InceptionV3_Model/InceptionV3_Model
 #DATA_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
 #MODEL_DIR=/data/ocr/1d-attention/models/origin
-#MODEL_DIR=/data/ocr/1d-attention/models/opt_2
+MODEL_DIR=/data/ocr/1d-attention/models/opt_2_1
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_5
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_6
+
 #MODEL_DIR=/data/ocr/dinge/models/origin
-MODEL_DIR=/data/ocr/dinge/models/opt_1
-IMAGE_PATH=/data/ocr/dinge/data/20180731-25eba0223dd94efab993ea9704f304b0_3.jpg.txt
+#MODEL_DIR=/data/ocr/dinge/models/opt_1
+#IMAGE_PATH=/data/ocr/dinge/data/20180731-25eba0223dd94efab993ea9704f304b0_3.jpg.txt
 
 #MODEL_DIR=/data/face/models/blur
 #IMAGE_PATH=/data/face/images/blur.txt
@@ -56,37 +60,46 @@ IMAGE_PATH=/data/ocr/dinge/data/20180731-25eba0223dd94efab993ea9704f304b0_3.jpg.
 #MODEL_DIR=/data/face/models/super_res
 #MODEL_DIR=/data/face/models/pars
 
+#MODEL_DIR=/models/fluid/PaddleNLP/machine_reading_comprehension/models
+
 #EXE_NAME=video_tester
 #EXE_NAME=faster_rcnn_tester
-EXE_NAME=ocr_plate_tester
-$BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
-    --infer_model=${MODEL_DIR} \
-    --profile=1 \
-    --repeat=100 \
-    --prog_filename="model" \
-    --param_filename="params" \
-    --image_dims="400x400" \
-    --image_path=${IMAGE_PATH} \
-    --use_gpu=1 \
-    --use_analysis=0 \
-    --use_tensorrt=0
+#EXE_NAME=ocr_plate_tester
+#EXE_NAME=machine_reading_comprehension_tester
+##nvprof \
+#$BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
+#    --infer_model=${MODEL_DIR} \
+#    --profile=0 \
+#    --benchmark=0 \
+#    --repeat=1 \
+#    --prog_filename="model" \
+#    --param_filename="params" \
+#    --use_gpu=1 \
+#    --use_analysis=0 \
+#    --use_tensorrt=0
 
+#    --image_dims="400x400" \
+#    --image_path=${IMAGE_PATH} \
+
+#FILENAME=/paddle/paddle/fluid/operators/benchmark/elementwise_add.config
+#$BUILD_ROOT/paddle/fluid/operators/benchmark/op_tester \
+#    --filename=${FILENAME}
 
 #cd $BUILD_ROOT
-#make test ARGS="-R test_profiler -V"
+#make test ARGS="-R test_warpctc_op -V"
 
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_analyzer_resnet50 \
 #    --infer_model=/paddle/build_paddle/resnet50_model
 #MODEL_DIR=/data/facebox_model_remove_ops
 #MODEL_DIR=/paddle/build_paddle/resnet50_model #image_dims=1x3x318x318
-#MODEL_DIR=/paddle/build_paddle/trt_test_models
+#MODEL_DIR=/data/trt_test_models
 #MODEL_DIR=/data/se_resnext_50/se_resnext
 #MODEL_DIR=/data/se_resnext_50/models
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_trt_models \
 #    --infer_model=${MODEL_DIR} \
-#    --profile=0 \
+#    --profile=1 \
+#    --use_analysis=0 \
 #    --use_tensorrt=0 \
 #    --repeat=100
-
 #    --prog_filename="model" \
 #    --param_filename="params" \
