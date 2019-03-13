@@ -57,7 +57,9 @@ function build() {
   Building in $BUILD_ROOT
   ============================================
 EOF
-  make -j12
+#  make ocr_plate_tester -j12
+  make op_tester -j12
+#  make -j12
   cd $PROJ_ROOT
 }
 

@@ -24,7 +24,7 @@ BUILD_ROOT=/paddle/build_paddle/build_docker$SUFFIX
 #export FLAGS_fraction_of_gpu_memory_to_use=0.1
 #export GLOG_v=4
 unset CUDA_VISIBLE_DEVICES
-export CUDA_VISIBLE_DEVICES=2
+export CUDA_VISIBLE_DEVICES=1
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 #export FLAGS_benchmark=1
 #./paddle/fluid/inference/tests/book/test_inference_${NAME} \
@@ -45,9 +45,13 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 #MODEL_DIR=/data/ocr/InceptionV3_Model/InceptionV3_Model
 #DATA_PATH=/data/InceptionV3_Model/ocr_images/0_780.jpg.txt
 #MODEL_DIR=/data/ocr/1d-attention/models/origin
-MODEL_DIR=/data/ocr/1d-attention/models/opt_2_1
-#MODEL_DIR=/data/ocr/1d-attention/models/opt_5
-#MODEL_DIR=/data/ocr/1d-attention/models/opt_6
+#MODEL_DIR=/data/ocr/1d-attention/models/origin_1
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_7_1
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_8_1
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_9_1
+
+#MODEL_DIR=/data/ocr/airticket/origin
+MODEL_DIR=/data/ocr/airticket/new
 
 #MODEL_DIR=/data/ocr/dinge/models/origin
 #MODEL_DIR=/data/ocr/dinge/models/opt_1
@@ -65,13 +69,13 @@ MODEL_DIR=/data/ocr/1d-attention/models/opt_2_1
 #EXE_NAME=video_tester
 #EXE_NAME=faster_rcnn_tester
 #EXE_NAME=ocr_plate_tester
-#EXE_NAME=machine_reading_comprehension_tester
+###EXE_NAME=machine_reading_comprehension_tester
 ##nvprof \
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
 #    --infer_model=${MODEL_DIR} \
-#    --profile=0 \
+#    --profile=1 \
 #    --benchmark=0 \
-#    --repeat=1 \
+#    --repeat=100 \
 #    --prog_filename="model" \
 #    --param_filename="params" \
 #    --use_gpu=1 \
@@ -82,24 +86,31 @@ MODEL_DIR=/data/ocr/1d-attention/models/opt_2_1
 #    --image_path=${IMAGE_PATH} \
 
 #FILENAME=/paddle/paddle/fluid/operators/benchmark/elementwise_add.config
-#$BUILD_ROOT/paddle/fluid/operators/benchmark/op_tester \
-#    --filename=${FILENAME}
+##FILENAME=/paddle/paddle/fluid/operators/benchmark/gather.config
+##FILENAME=/paddle/paddle/fluid/operators/benchmark/sequence_expand.config
+##FILENAME=/paddle/paddle/fluid/operators/benchmark/is_empty.config
+FILENAME=/paddle/paddle/fluid/operators/benchmark/matmul.config
+$BUILD_ROOT/paddle/fluid/operators/benchmark/op_tester \
+    --op_config_list=${FILENAME} \
+    --specified_config_id=1
 
 #cd $BUILD_ROOT
-#make test ARGS="-R test_warpctc_op -V"
+#make test ARGS="-R test_anakin_rnn1 -V"
 
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_analyzer_resnet50 \
 #    --infer_model=/paddle/build_paddle/resnet50_model
 #MODEL_DIR=/data/facebox_model_remove_ops
 #MODEL_DIR=/paddle/build_paddle/resnet50_model #image_dims=1x3x318x318
 #MODEL_DIR=/data/trt_test_models
-#MODEL_DIR=/data/se_resnext_50/se_resnext
-#MODEL_DIR=/data/se_resnext_50/models
+#MODEL_DIR=/paddle/build_paddle/third_party_docker/inference_demo/trt
+##MODEL_DIR=/data/se_resnext_50/se_resnext
+##MODEL_DIR=/data/se_resnext_50/models
 #$BUILD_ROOT/paddle/fluid/inference/tests/api/test_trt_models \
 #    --infer_model=${MODEL_DIR} \
 #    --profile=1 \
 #    --use_analysis=0 \
 #    --use_tensorrt=0 \
 #    --repeat=100
+
 #    --prog_filename="model" \
 #    --param_filename="params" \
