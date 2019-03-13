@@ -1,11 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 set -xe
 
-#CUDA_ROOT=/usr
-#CUDA_ROOT=/usr/local/cuda
-#export CUDA_SO="$(\ls ${CUDA_ROOT}/lib64/libcuda* | xargs -I{} echo '-v {}:{}') $(\ls ${CUDA_ROOT}/lib64/libnvidia* | xargs -I{} echo '-v {}:{}')"
-#export DEVICES=$(\ls /dev/nvidia* | xargs -I{} echo '--device {}:{}')
+source image.sh
 
 #docker run --name paddle_trt -i --rm ${CUDA_SO} ${DEVICES} -v $PWD:/paddle -w /paddle \
 #    -e "CMAKE_BUILD_TYPE=RelWithDebInfo" \
@@ -31,6 +28,5 @@ nvidia-docker run --name paddle_xreki_enter --network=host -it --rm \
     -v $PWD/../../models:/models \
     -v $PWD/../../inference:/data \
     -w /paddle \
-    $NAME:$TAG \
+    $XREKI_IMAGE_NAME:$XREKI_IMAGE_TAG \
     bash
-

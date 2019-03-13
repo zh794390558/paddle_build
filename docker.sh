@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 set -xe
+
+source image.sh
 
 TASK=run
 if [ $# -ge 1 ]; then
@@ -42,11 +44,9 @@ fi
 #    paddlepaddle/paddle:latest-dev \
 #    build_paddle/build_docker.sh run
 
-NAME=xreki/paddle
-TAG=cuda92_cudnn7_debug
 #NVIDIA_DOCKER_PATH=/home/liuyiqun/packages/nvidia-docker-2.0.3
 nvidia-docker run --name paddle_xreki --network=host -it --rm \
     -v $PWD/../../Paddle:/paddle -v $PWD/../../inference:/data -v $PWD/../../models:/models -w /paddle \
-    $NAME:$TAG \
+    $XREKI_IMAGE_NAME:$XREKI_IMAGE_TAG \
     build_paddle/build_docker.sh $TASK
 
