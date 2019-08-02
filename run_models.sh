@@ -51,7 +51,7 @@ export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 #MODEL_DIR=/data/ocr/1d-attention/models/opt_9_1
 
 #MODEL_DIR=/data/ocr/airticket/origin
-MODEL_DIR=/data/ocr/airticket/new
+#MODEL_DIR=/data/ocr/airticket/new
 
 #MODEL_DIR=/data/ocr/dinge/models/origin
 #MODEL_DIR=/data/ocr/dinge/models/opt_1
@@ -66,20 +66,20 @@ MODEL_DIR=/data/ocr/airticket/new
 #INPUT_NAME=image
 
 #MODEL_DIR=/models/fluid/PaddleNLP/machine_reading_comprehension/models
+#IMAGE_DIR=/models/fluid/PaddleNLP/machine_reading_comprehension/infer_data
 
 #EXE_NAME=video_tester
 #EXE_NAME=faster_rcnn_tester
-#EXE_NAME=ocr_plate_tester
-###EXE_NAME=machine_reading_comprehension_tester
+EXE_NAME=machine_reading_comprehension_tester
 #EXE_NAME=image_tester
 
-MODEL_DIR=/data/ocr/1d-attention/models/origin
+EXE_NAME=ocr_attention_tester
+#MODEL_DIR=/data/ocr/1d-attention/models/origin
 #MODEL_DIR=/data/ocr/1d-attention/models/opt_2
-#MODEL_DIR=/data/ocr/1d-attention/models/opt_5
+#MODEL_DIR=/data/ocr/1d-attention/models/opt_7_1
+MODEL_DIR=/data/ocr/1d-attention/models
 IMAGE_DIR=/data/ocr/1d-attention/case_txt
 #IMAGE_DIR=/data/ocr/1d-attention/test_image_txt
-
-EXE_NAME=ocr_plate_tester
 
 if [ $XREKI_IMAGE_NAME == manylinux_trt ]; then
   patchelf --set-rpath /opt/compiler/gcc-4.8.2/lib64/ $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME
@@ -92,31 +92,31 @@ if [ $PPROF -eq 1 ]; then
       $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
       paddle_inference.prof > $EXE_NAME.pdf
 else
-##nvprof \
-#$BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
-#    --infer_model=${MODEL_DIR} \
-#    --profile=1 \
-#    --benchmark=0 \
-#    --repeat=100 \
-#    --prog_filename="model" \
-#    --param_filename="params" \
-#    --use_gpu=1 \
-#    --use_analysis=0 \
-#    --use_tensorrt=0
+#  #nvprof \
+#  $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
+#      --infer_model=${MODEL_DIR} \
+#      --profile=1 \
+#      --benchmark=0 \
+#      --repeat=100 \
+#      --prog_filename="model" \
+#      --param_filename="params" \
+#      --input_dir=${IMAGE_DIR} \
+#      --image_dims="1x1x48x214" \
+#      --use_gpu=1 \
+#      --use_analysis=0 \
+#      --use_tensorrt=0
 
-#      --image_dims="1x0x0x0" \
-#      --image_dir=${IMAGE_DIR} \
 fi
 
 #FILENAME=/paddle/paddle/fluid/operators/benchmark/elementwise_add.config
 ##FILENAME=/paddle/paddle/fluid/operators/benchmark/gather.config
 ##FILENAME=/paddle/paddle/fluid/operators/benchmark/sequence_expand.config
 ##FILENAME=/paddle/paddle/fluid/operators/benchmark/is_empty.config
-FILENAME=/paddle/paddle/fluid/operators/benchmark/matmul.config
-$BUILD_ROOT/paddle/fluid/operators/benchmark/op_tester \
-    --op_config_list=${FILENAME} \
-    --specified_config_id=1
+#FILENAME=/paddle/paddle/fluid/operators/benchmark/matmul.config
+#$BUILD_ROOT/paddle/fluid/operators/benchmark/op_tester \
+#    --op_config_list=${FILENAME} \
+#    --specified_config_id=1
 
 #cd $BUILD_ROOT
-#make test ARGS="-R test_anakin_rnn1 -V"
+#make test ARGS="-R test_analyzer_rnn2 -V"
 
