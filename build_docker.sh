@@ -2,7 +2,7 @@
 
 set -xe
 source image.sh
-use_manylinux=`echo "${XREKI_IMAGE_NAME}" | grep manylinux`
+use_manylinux=`echo "${XREKI_IMAGE_NAME}" | grep manylinux | wc -l`
 
 WITH_GPU=ON
 
@@ -15,7 +15,7 @@ fi
 
 SOURCES_ROOT=/paddle
 
-if [ ${use_manylinux} != "" ];
+if [ ${use_manylinux} != "0" ];
 then
   PYTHON_ABI="cp27-cp27mu"
   echo "using python abi: $1"
@@ -42,7 +42,7 @@ function cmake_gen() {
   export CXX=g++
   source $PROJ_ROOT/clear.sh
   cd $BUILD_ROOT
-  if [ ${use_manylinux} == "" ];
+  if [ ${use_manylinux} == "0" ];
   then
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
@@ -55,6 +55,7 @@ function cmake_gen() {
           -DWITH_GPU=${WITH_GPU} \
           -DWITH_AMD_GPU=OFF \
           -DWITH_DISTRIBUTE=OFF \
+          -DWITH_DGC=OFF \
           -DWITH_MKL=ON \
           -DWITH_NGRAPH=OFF \
           -DWITH_AVX=ON \
@@ -66,11 +67,7 @@ function cmake_gen() {
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_CONTRIB=ON \
           -DWITH_INFERENCE_API_TEST=ON \
-          -DWITH_ANAKIN=OFF \
-          -DANAKIN_BUILD_FAT_BIN= \
-          -DANAKIN_BUILD_CROSS_PLANTFORM= \
           -DPY_VERSION=2.7 \
-          -DWITH_JEMALLOC=OFF \
           $SOURCES_ROOT
   else
     if [ "$PYTHON_ABI" == "cp27-cp27m" ]; then
@@ -130,6 +127,7 @@ function cmake_gen() {
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_MKL=ON \
           -DWITH_DISTRIBUTE=OFF \
+          -DWITH_DGC=OFF \
           -DCMAKE_VERBOSE_MAKEFILE=OFF \
           $SOURCES_ROOT
   fi
