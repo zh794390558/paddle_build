@@ -15,8 +15,8 @@ export XREKI_IMAGE_TAG=cuda9.0_cudnn7
 export DOCKER_SUFFIX=_manylinux_cuda90
 
 function set_python_env() {
-  export use_manylinux=`echo "${XREKI_IMAGE_NAME}" | grep manylinux`
-  if [ "${use_manylinux}" != "" ];
+  export use_manylinux=`echo "${XREKI_IMAGE_NAME}" | grep manylinux | wc -l`
+  if [ "${use_manylinux}" != "0" ];
   then
     export PYTHON_ABI="cp27-cp27mu"
     echo "using python abi: $1"
