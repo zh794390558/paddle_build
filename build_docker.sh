@@ -1,4 +1,4 @@
-#!/bin/bash
+
 
 set -xe
 source image.sh
@@ -54,7 +54,7 @@ function cmake_gen() {
           -DWITH_DSO=ON \
           -DWITH_GPU=${WITH_GPU} \
           -DWITH_AMD_GPU=OFF \
-          -DWITH_DISTRIBUTE=OFF \
+          -DWITH_DISTRIBUTE=ON \
           -DWITH_DGC=OFF \
           -DWITH_MKL=ON \
           -DWITH_NGRAPH=OFF \
@@ -141,10 +141,10 @@ function build() {
   Building in $BUILD_ROOT
   ============================================
 EOF
-#  make ocr_plate_tester -j12
+#  make test_fusion_group_op -j12
 #  make op_tester -j12
-#  make concat_test -j12
-  make -j12
+  make test_fusion_group_pass -j12
+#  make -j12
   cd $PROJ_ROOT
 }
 
