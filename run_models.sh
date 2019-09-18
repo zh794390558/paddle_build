@@ -21,10 +21,10 @@ BUILD_ROOT=/paddle/build_paddle/build_docker${DOCKER_SUFFIX}
 #DIRNAME=/home/liuyiqun01/PaddlePaddle/inference/paddle_test/fluid_model/model
 #DIRNAME=/home/liuyiqun01/PaddlePaddle/inference/mobilenet-ssd
 
-#export FLAGS_fraction_of_gpu_memory_to_use=0.1
+export FLAGS_fraction_of_gpu_memory_to_use=0.1
 #export GLOG_v=4
 unset CUDA_VISIBLE_DEVICES
-export CUDA_VISIBLE_DEVICES=1
+export CUDA_VISIBLE_DEVICES=5
 export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 #export FLAGS_benchmark=1
 #./paddle/fluid/inference/tests/book/test_inference_${NAME} \
@@ -87,11 +87,11 @@ if [ $XREKI_IMAGE_NAME == manylinux_trt ]; then
 fi
 
 PPROF=0
-if [ $PPROF -eq 1 ]; then
-  /paddle/gperftools-2.7/install/bin/pprof --pdf \
-      $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
-      paddle_inference.prof > $EXE_NAME.pdf
-else
+#if [ $PPROF -eq 1 ]; then
+#  /paddle/gperftools-2.7/install/bin/pprof --pdf \
+#      $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
+#      paddle_inference.prof > $EXE_NAME.pdf
+#else
 #  #nvprof \
 #  $BUILD_ROOT/paddle/fluid/inference/tests/api/samples/$EXE_NAME \
 #      --infer_model=${MODEL_DIR} \
@@ -105,18 +105,19 @@ else
 #      --use_gpu=1 \
 #      --use_analysis=0 \
 #      --use_tensorrt=0
+#fi
 
-fi
+MODEL_DIR=/data/ernie/model
+DATA_FILE=/data/ernie/seq128_data/test_ds
 
-#FILENAME=/paddle/paddle/fluid/operators/benchmark/elementwise_add.config
-##FILENAME=/paddle/paddle/fluid/operators/benchmark/gather.config
-##FILENAME=/paddle/paddle/fluid/operators/benchmark/sequence_expand.config
-##FILENAME=/paddle/paddle/fluid/operators/benchmark/is_empty.config
-#FILENAME=/paddle/paddle/fluid/operators/benchmark/matmul.config
-#$BUILD_ROOT/paddle/fluid/operators/benchmark/op_tester \
-#    --op_config_list=${FILENAME} \
-#    --specified_config_id=1
-
-#cd $BUILD_ROOT
-#make test ARGS="-R test_analyzer_rnn2 -V"
+${BUILD_ROOT}/paddle/fluid/inference/tests/api/samples/ernie_tester \
+    --logtostderr \
+    --model_dir=${MODEL_DIR} \
+    --data=${DATA_FILE} \
+    --repeat=1 \
+    --warmup_steps=1 \
+    --use_gpu=true \
+    --use_analysis=true \
+    --print_outputs=false \
+    --profile=false
 
