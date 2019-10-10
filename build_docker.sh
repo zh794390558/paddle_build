@@ -14,6 +14,13 @@ fi
 
 SOURCES_ROOT=/paddle
 
+function parse_version() {
+  PADDLE_GITHUB_REPO=https://github.com/PaddlePaddle/Paddle.git
+  git ls-remote --tags --refs ${PADDLE_GITHUB_REPO} > all_tags.txt
+  latest_tag=`sed 's/refs\/tags\/v//g' all_tags.txt | awk 'END { print $NF }'`
+  export PADDLE_VERSION=${latest_tag}
+}
+
 function cmake_gen() {
   export CC=gcc
   export CXX=g++
@@ -144,6 +151,7 @@ function main() {
   set_python_env
   case $CMD in
     cmake)
+      parse_version
       cmake_gen
       ;;
     build)
@@ -156,6 +164,9 @@ function main() {
       sh $PROJ_ROOT/run_docker.sh
 #      cd $BUILD_ROOT
 #      sh $PROJ_ROOT/run_test.sh
+      ;;
+    version)
+      parse_version
       ;;
   esac
 }
