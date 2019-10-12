@@ -4,6 +4,7 @@ set -xe
 source image.sh
 
 WITH_GPU=ON
+WITH_TESTING=ON
 
 PROJ_ROOT=/paddle/build_paddle
 if [ $WITH_GPU == OFF ]; then
@@ -13,6 +14,9 @@ else
 fi
 
 SOURCES_ROOT=/paddle
+
+export http_proxy=http://172.19.56.199:3128
+export https_proxy=http://172.19.56.199:3128
 
 function parse_version() {
   PADDLE_GITHUB_REPO=https://github.com/PaddlePaddle/Paddle.git
@@ -107,8 +111,8 @@ function cmake_gen() {
           -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} \
           -DPYTHON_LIBRARIES=${PYTHON_LIBRARIES} \
           -DWITH_AVX=ON \
-          -DWITH_TESTING=ON \
-          -DWITH_INFERENCE_API_TEST=ON \
+          -DWITH_TESTING=${WITH_TESTING} \
+          -DWITH_INFERENCE_API_TEST=${WITH_TESTING} \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_MKL=ON \
           -DWITH_DISTRIBUTE=OFF \
@@ -127,9 +131,9 @@ function build() {
   ============================================
 EOF
 #  make op_tester -j12
-  make test_fusion_group_pass -j12
+#  make test_fusion_group_pass -j12
 #  make ernie_tester -j12
-#  make -j12
+  make -j12
   cd $PROJ_ROOT
 }
 
