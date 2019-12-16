@@ -7,6 +7,7 @@
 mkdir -p -v $BUILD_ROOT
 
 #### Clear the dist directory
-if [ -d $DIST_ROOT ]; then
-  rm -rf $DIST_ROOT
-fi
+#if [ -d $DIST_ROOT ]; then
+#  rm -rf $DIST_ROOT
+#fi
+#mkdir -p -v $DIST_ROOT
