@@ -1,4 +1,4 @@
-
+#!/bin/bash
 
 set -xe
 source image.sh
@@ -7,16 +7,8 @@ WITH_GPU=ON
 WITH_TESTING=ON
 
 PROJ_ROOT=/paddle/build_paddle
-if [ $WITH_GPU == OFF ]; then
-  SUFFIX=_docker_cpu${DOCKER_SUFFIX}
-else
-  SUFFIX=_docker${DOCKER_SUFFIX}
-fi
 
 SOURCES_ROOT=/paddle
-
-export http_proxy=http://172.19.56.199:3128
-export https_proxy=http://172.19.56.199:3128
 
 function parse_version() {
   PADDLE_GITHUB_REPO=https://github.com/PaddlePaddle/Paddle.git
@@ -112,7 +104,7 @@ function cmake_gen() {
           -DPYTHON_LIBRARIES=${PYTHON_LIBRARIES} \
           -DWITH_AVX=ON \
           -DWITH_TESTING=${WITH_TESTING} \
-          -DWITH_INFERENCE_API_TEST=${WITH_TESTING} \
+          -DWITH_INFERENCE_API_TEST=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_MKL=ON \
           -DWITH_DISTRIBUTE=OFF \
@@ -155,10 +147,11 @@ function main() {
   set_python_env
   case $CMD in
     cmake)
-      parse_version
+#      parse_version
       cmake_gen
       ;;
     build)
+#      parse_version
       build
       ;;
     inference_lib)
