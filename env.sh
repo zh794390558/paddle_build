@@ -7,6 +7,10 @@ if [ ${NVCC} != "" ]; then
 fi
 GCC_VERSION=`gcc --version | head -n 1 | grep "[0-9]\.[0-9]\.[0-9]" -o | uniq`
 SUFFIX=${SUFFIX}"_gcc${GCC_VERSION}"
+PY_VERSION=3.5
+if [ "${PY_VERSION}" != "" ]; then
+  SUFFIX=${SUFFIX}"_py${PY_VERSION}"
+fi
 
 BUILD_ROOT=${PROJ_ROOT}/build$SUFFIX
 DEST_ROOT=$PROJ_ROOT/dist$SUFFIX
@@ -21,3 +25,23 @@ echo "PROJ_ROOT: ${PROJ_ROOT}"
 echo "SOURCES_ROOT: ${SOURCES_ROOT}"
 echo "BUILD_ROOT: ${BUILD_ROOT}"
 echo "THIRD_PARTY_PATH: ${THIRD_PARTY_PATH}"
+
+OSNAME=`cat /etc/issue | head -n 1 | awk '{print $1}'`
+function set_python_env() {
+  if [ "${OSNAME}" == "CentOS" ];
+  then
+    if [ "${PY_VERSION}" == "3.5" ]; then
+      export PYTHON_ABI="cp35-cp35m"
+    elif  [ "${PY_VERSION}" == "3.6" ]; then
+      export PYTHON_ABI="cp36-cp36m"
+    elif  [ "${PY_VERSION}" == "3.7" ]; then
+      export PYTHON_ABI="cp37-cp37m"
+    else
+      export PYTHON_ABI="cp27-cp27mu"
+    fi
+
+    echo "using python abi: $1"
+    export LD_LIBRARY_PATH=/opt/python/${PYTHON_ABI}/lib:${LD_LIBRARY_PATH}
+    export PATH=/opt/python/${PYTHON_ABI}/bin/:${PATH}
+  fi
+}

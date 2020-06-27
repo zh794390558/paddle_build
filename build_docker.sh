@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -xe
-source image.sh
 
 WITH_GPU=ON
 WITH_TESTING=ON
@@ -21,8 +20,9 @@ function cmake_gen() {
   export CC=gcc
   export CXX=g++
   source $PROJ_ROOT/clear.sh
+#  export TENSORRT_ROOT=${PROJ_ROOT}/TensorRT-4.0.0.3
   cd $BUILD_ROOT
-  if [ ${use_manylinux} == "0" ];
+  if [ ${OSNAME} != "CentOS" ];
   then
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
@@ -34,7 +34,7 @@ function cmake_gen() {
           -DWITH_DSO=ON \
           -DWITH_GPU=${WITH_GPU} \
           -DWITH_AMD_GPU=OFF \
-          -DWITH_DISTRIBUTE=ON \
+          -DWITH_DISTRIBUTE=OFF \
           -DWITH_DGC=OFF \
           -DWITH_MKL=ON \
           -DWITH_NGRAPH=OFF \
@@ -46,48 +46,39 @@ function cmake_gen() {
           -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_CONTRIB=ON \
+          -DWITH_CRYPTO=OFF \
           -DWITH_INFERENCE_API_TEST=ON \
-          -DPY_VERSION=2.7 \
+          -DPY_VERSION=${PY_VERSION} \
           $SOURCES_ROOT
   else
     if [ "$PYTHON_ABI" == "cp27-cp27m" ]; then
-      export LD_LIBRARY_PATH=/opt/_internal/cpython-2.7.11-ucs2/lib:${LD_LIBRARY_PATH#/opt/_internal/cpython-2.7.11-ucs4/lib:}
-      export PATH=/opt/python/cp27-cp27m/bin/:${PATH}
-      PYTHON_EXECUTABLE=/opt/python/cp27-cp27m/bin/python
-      PYTHON_INCLUDE_DIR=/opt/python/cp27-cp27m/include/python2.7
-      PYTHON_LIBRARIES=/opt/_internal/cpython-2.7.11-ucs2/lib/libpython2.7.so
+      PYTHON_EXECUTABLE=/opt/python/${PYTHON_ABI}/bin/python
+      PYTHON_INCLUDE_DIR=/opt/python/${PYTHON_ABI}/include/python2.7
+      PYTHON_LIBRARIES=/opt/python/${PYTHON_ABI}/lib/libpython2.7.so
       pip uninstall -y protobuf
       pip install -r ${SOURCES_ROOT}/python/requirements.txt
     elif [ "$PYTHON_ABI" == "cp27-cp27mu" ]; then
-      export LD_LIBRARY_PATH=/opt/_internal/cpython-2.7.11-ucs4/lib:${LD_LIBRARY_PATH#/opt/_internal/cpython-2.7.11-ucs2/lib:}
-      export PATH=/opt/python/cp27-cp27mu/bin/:${PATH}
       PYTHON_EXECUTABLE=/opt/python/cp27-cp27mu/bin/python
       PYTHON_INCLUDE_DIR=/opt/python/cp27-cp27mu/include/python2.7
-      PYTHON_LIBRARIES=/opt/_internal/cpython-2.7.11-ucs4/lib/libpython2.7.so
+      PYTHON_LIBRARIES=/opt/python/${PYTHON_ABI}/lib/libpython2.7.so
       pip uninstall -y protobuf
       pip install -r ${SOURCES_ROOT}/python/requirements.txt
     elif [ "$PYTHON_ABI" == "cp35-cp35m" ]; then
-      export LD_LIBRARY_PATH=/opt/_internal/cpython-3.5.1/lib/:${LD_LIBRARY_PATH}
-      export PATH=/opt/_internal/cpython-3.5.1/bin/:${PATH}
-      PYTHON_EXECUTABLE=/opt/_internal/cpython-3.5.1/bin/python3
-      PYTHON_INCLUDE_DIR=/opt/_internal/cpython-3.5.1/include/python3.5m
-      PYTHON_LIBRARIES=/opt/_internal/cpython-3.5.1/lib/libpython3.so
+      PYTHON_EXECUTABLE=/opt/python/${PYTHON_ABI}/bin/python3
+      PYTHON_INCLUDE_DIR=/opt/python/${PYTHON_ABI}/include/python3.5m
+      PYTHON_LIBRARIES=/opt/python/${PYTHON_ABI}/lib/libpython3.so
       pip3.5 uninstall -y protobuf
       pip3.5 install -r ${SOURCES_ROOT}/python/requirements.txt
     elif [ "$PYTHON_ABI" == "cp36-cp36m" ]; then
-      export LD_LIBRARY_PATH=/opt/_internal/cpython-3.6.0/lib/:${LD_LIBRARY_PATH}
-      export PATH=/opt/_internal/cpython-3.6.0/bin/:${PATH}
-      PYTHON_EXECUTABLE=/opt/_internal/cpython-3.6.0/bin/python3
-      PYTHON_INCLUDE_DIR=/opt/_internal/cpython-3.6.0/include/python3.6m
-      PYTHON_LIBRARIES=/opt/_internal/cpython-3.6.0/lib/libpython3.so
+      PYTHON_EXECUTABLE=/opt/python/${PYTHON_ABI}/bin/python3
+      PYTHON_INCLUDE_DIR=/opt/python/${PYTHON_ABI}/include/python3.6m
+      PYTHON_LIBRARIES=/opt/python/${PYTHON_ABI}/lib/libpython3.so
       pip3.6 uninstall -y protobuf
       pip3.6 install -r ${SOURCES_ROOT}/python/requirements.txt
     elif [ "$PYTHON_ABI" == "cp37-cp37m" ]; then
-      export LD_LIBRARY_PATH=/opt/_internal/cpython-3.7.0/lib/:${LD_LIBRARY_PATH}
-      export PATH=/opt/_internal/cpython-3.7.0/bin/:${PATH}
-      PYTHON_EXECUTABLE=/opt/_internal/cpython-3.7.0/bin/python3.7
-      PYTHON_INCLUDE_DIR=/opt/_internal/cpython-3.7.0/include/python3.7m
-      PYTHON_LIBRARIES=/opt/_internal/cpython-3.7.0/lib/libpython3.so
+      PYTHON_EXECUTABLE=/opt/python/${PYTHON_ABI}/bin/python3.7
+      PYTHON_INCLUDE_DIR=/opt/python/${PYTHON_ABI}/include/python3.7m
+      PYTHON_LIBRARIES=/opt/python/${PYTHON_ABI}/lib/libpython3.so
       pip3.7 uninstall -y protobuf
       pip3.7 install -r ${SOURCES_ROOT}/python/requirements.txt
     fi
@@ -107,9 +98,11 @@ function cmake_gen() {
           -DWITH_INFERENCE_API_TEST=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_MKL=ON \
-          -DWITH_DISTRIBUTE=OFF \
+          -DWITH_DISTRIBUTE=ON \
           -DWITH_DGC=OFF \
+          -DWITH_CRYPTO=OFF \
           -DCMAKE_VERBOSE_MAKEFILE=OFF \
+          -DPY_VERSION=${PY_VERSION} \
           $SOURCES_ROOT
   fi
   cd $PROJ_ROOT
@@ -122,9 +115,6 @@ function build() {
   Building in $BUILD_ROOT
   ============================================
 EOF
-#  make op_tester -j12
-#  make test_fusion_group_pass -j12
-#  make ernie_tester -j12
   make -j12
   cd $PROJ_ROOT
 }

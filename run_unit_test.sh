@@ -4,7 +4,7 @@ set -xe
 
 
 export WORK_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")" && pwd )"
-. ${WORK_ROOT}/image.sh
+. ${WORK_ROOT}/env.sh
 BUILD_ROOT=${WORK_ROOT}/build_docker${DOCKER_SUFFIX}
 
 set_python_env
