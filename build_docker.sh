@@ -5,9 +5,8 @@ set -xe
 WITH_GPU=ON
 WITH_TESTING=ON
 
-PROJ_ROOT=/paddle/build_paddle
-
-SOURCES_ROOT=/paddle
+PROJ_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")" && pwd )"
+SOURCES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")/.." && pwd )"
 
 function parse_version() {
   PADDLE_GITHUB_REPO=https://github.com/PaddlePaddle/Paddle.git
@@ -26,27 +25,17 @@ function cmake_gen() {
   then
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
-          -DFLUID_INSTALL_DIR=$DEST_ROOT \
           -DCMAKE_BUILD_TYPE=Release \
-          -DWITH_PROFILER=OFF \
-          -DGperftools_ROOT_DIR=/usr/local/lib \
-          -DON_INFER=OFF \
-          -DWITH_DSO=ON \
           -DWITH_GPU=${WITH_GPU} \
-          -DWITH_AMD_GPU=OFF \
+          -DCUDA_ARCH_NAME=Auto \
+          -DON_INFER=OFF \
           -DWITH_DISTRIBUTE=OFF \
           -DWITH_DGC=OFF \
           -DWITH_MKL=ON \
-          -DWITH_NGRAPH=OFF \
           -DWITH_AVX=ON \
-          -DCUDA_ARCH_NAME=Auto \
           -DWITH_PYTHON=ON \
-          -DCUDNN_ROOT=/usr/ \
           -DWITH_TESTING=ON \
-          -DCMAKE_MODULE_PATH=/opt/rocm/hip/cmake \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          -DWITH_CONTRIB=ON \
-          -DWITH_CRYPTO=OFF \
           -DWITH_INFERENCE_API_TEST=ON \
           -DPY_VERSION=${PY_VERSION} \
           $SOURCES_ROOT
@@ -85,7 +74,6 @@ function cmake_gen() {
 
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
-          -DFLUID_INSTALL_DIR=$DEST_ROOT \
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_GPU=${WITH_GPU} \
           -DCUDA_ARCH_NAME=Auto \

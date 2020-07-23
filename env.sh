@@ -7,7 +7,7 @@ if [ ${NVCC} != "" ]; then
 fi
 GCC_VERSION=`gcc --version | head -n 1 | grep "[0-9]\.[0-9]\.[0-9]" -o | uniq`
 SUFFIX=${SUFFIX}"_gcc${GCC_VERSION}"
-PY_VERSION=3.5
+PY_VERSION=3.7
 if [ "${PY_VERSION}" != "" ]; then
   SUFFIX=${SUFFIX}"_py${PY_VERSION}"
 fi
