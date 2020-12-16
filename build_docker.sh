@@ -19,24 +19,24 @@ function cmake_gen() {
   export CC=gcc
   export CXX=g++
   source $PROJ_ROOT/clear.sh
-#  export TENSORRT_ROOT=${PROJ_ROOT}/TensorRT-4.0.0.3
   cd $BUILD_ROOT
   if [ ${OSNAME} != "CentOS" ];
   then
+    # export CUDNN_ROOT=/work/packages/cudnn-v8.0.4
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_GPU=${WITH_GPU} \
           -DCUDA_ARCH_NAME=Auto \
           -DON_INFER=OFF \
-          -DWITH_DISTRIBUTE=OFF \
-          -DWITH_DGC=OFF \
-          -DWITH_MKL=ON \
+          -DWITH_DISTRIBUTE=ON \
+          -DWITH_DGC=ON \
+          -DWITH_MKL=OFF \
           -DWITH_AVX=ON \
-          -DWITH_PYTHON=ON \
           -DWITH_TESTING=ON \
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DWITH_INFERENCE_API_TEST=ON \
+          -DWITH_PYTHON=ON \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DPY_VERSION=${PY_VERSION} \
           $SOURCES_ROOT
   else
@@ -77,18 +77,20 @@ function cmake_gen() {
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_GPU=${WITH_GPU} \
           -DCUDA_ARCH_NAME=Auto \
+          -DON_INFER=OFF \
+          -DWITH_DISTRIBUTE=OFF \
+          -DWITH_DGC=OFF \
+          -DWITH_CRYPTO=ON \
+          -DWITH_MKL=OFF \
+          -DWITH_AVX=ON \
+          -DWITH_TESTING=ON \
+          -DWITH_INFERENCE_API_TEST=ON \
           -DWITH_PYTHON=ON \
           -DPYTHON_EXECUTABLE=${PYTHON_EXECUTABLE} \
           -DPYTHON_INCLUDE_DIR=${PYTHON_INCLUDE_DIR} \
           -DPYTHON_LIBRARIES=${PYTHON_LIBRARIES} \
-          -DWITH_AVX=ON \
           -DWITH_TESTING=${WITH_TESTING} \
-          -DWITH_INFERENCE_API_TEST=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          -DWITH_MKL=ON \
-          -DWITH_DISTRIBUTE=ON \
-          -DWITH_DGC=OFF \
-          -DWITH_CRYPTO=OFF \
           -DCMAKE_VERBOSE_MAKEFILE=OFF \
           -DPY_VERSION=${PY_VERSION} \
           $SOURCES_ROOT
