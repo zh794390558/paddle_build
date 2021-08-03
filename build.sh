@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xe
+set -e
 
 WITH_GPU=ON
 WITH_TESTING=ON
@@ -11,8 +11,10 @@ SOURCES_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")/.." && pwd )"
 function parse_version() {
   PADDLE_GITHUB_REPO=https://github.com/PaddlePaddle/Paddle.git
   git ls-remote --tags --refs ${PADDLE_GITHUB_REPO} > all_tags.txt
+  trap "unlink all_tags.txt" HUP INT PIPE QUIT TERM EXIT
   latest_tag=`sed 's/refs\/tags\/v//g' all_tags.txt | awk 'END { print $NF }'`
   export PADDLE_VERSION=${latest_tag}
+  echo "PADDLE_LATEST_VERSION: ${PADDLE_VERSION}"
 }
 
 function cmake_gen() {
@@ -20,9 +22,13 @@ function cmake_gen() {
   export CXX=g++
   source $PROJ_ROOT/clear.sh
   cd $BUILD_ROOT
-  if [ ${OSNAME} != "CentOS" ];
-  then
+
+  if [ ${OSNAME} != "CentOS" ]; then
     # export CUDNN_ROOT=/work/packages/cudnn-v8.0.4
+    # source venv first
+    pip uninstall -y protobuf
+    pip install -r ${SOURCES_ROOT}/python/requirements.txt
+
     cmake -DCMAKE_INSTALL_PREFIX=$DEST_ROOT \
           -DTHIRD_PARTY_PATH=$THIRD_PARTY_PATH \
           -DCMAKE_BUILD_TYPE=Release \
@@ -33,13 +39,13 @@ function cmake_gen() {
           -DWITH_DGC=ON \
           -DWITH_MKL=OFF \
           -DWITH_AVX=ON \
-          -DWITH_TESTING=ON \
+          -DWITH_TESTING=OFF \
           -DWITH_INFERENCE_API_TEST=ON \
           -DWITH_PYTHON=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DPY_VERSION=${PY_VERSION} \
           $SOURCES_ROOT
-  else
+  else # Centos
     if [ "$PYTHON_ABI" == "cp27-cp27m" ]; then
       PYTHON_EXECUTABLE=/opt/python/${PYTHON_ABI}/bin/python
       PYTHON_INCLUDE_DIR=/opt/python/${PYTHON_ABI}/include/python2.7
@@ -105,7 +111,7 @@ function build() {
   Building in $BUILD_ROOT
   ============================================
 EOF
-  make -j12
+  make -j
   cd $PROJ_ROOT
 }
 
@@ -121,17 +127,19 @@ EOF
 }
 
 function main() {
+  # https://www.paddlepaddle.org.cn/tutorials/projectdetail/1499138
+
   local CMD=$1
   source $PROJ_ROOT/env.sh
   git config --global http.sslverify false
   set_python_env
+
   case $CMD in
     cmake)
-#      parse_version
       cmake_gen
       ;;
     build)
-#      parse_version
+      apt install libnccl2 libnccl-dev
       build
       ;;
     inference_lib)
@@ -145,7 +153,16 @@ function main() {
     version)
       parse_version
       ;;
+    clean)
+      rm -rf $DEST_ROOT $BUILD_ROOT $THIRD_PARTY_PATH
+      ;;
+    *)
+      name=`basename $0 .sh`
+      echo "Usage: $name [version|cmake|build|inference_lib|run]"
+      exit 0 
+      ;;
   esac
+  echo "Main Done."
 }
 
 main $@
