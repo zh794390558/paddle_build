@@ -35,3 +35,5 @@ somewhere/Paddle/build_paddle $ ./build_android.sh # armeabi
 somewhere/Paddle/build_paddle $ ./build_ios.sh arm64
 somewhere/Paddle/build-paddle $ ./build_ios.sh armv7
 ```
+## Reference
+* https://github.com/Xreki/build_paddle.git
