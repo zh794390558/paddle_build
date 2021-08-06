@@ -1,5 +1,12 @@
 # Script files helping to compile PaddlePaddle for different platform
 
+```bash
+unset GREP_OPTIONS
+export TMPDIR=/workspace/tmp
+make
+source venv/bin/activate
+```
+
 - Clone PaddlePaddle to somewhere
 ```bash
 $ cd somewhere

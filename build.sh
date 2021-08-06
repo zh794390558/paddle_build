@@ -111,7 +111,7 @@ function build() {
   Building in $BUILD_ROOT
   ============================================
 EOF
-  make -j
+  make -j12
   cd $PROJ_ROOT
 }
 
