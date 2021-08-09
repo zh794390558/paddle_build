@@ -2,4 +2,3 @@ venv
 build_cuda*_py*
 third_party_cuda*_py*
 log
-test
