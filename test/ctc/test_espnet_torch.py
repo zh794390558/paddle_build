@@ -24,7 +24,7 @@ label_lengths = probs_sizes
 
 
 print('-'*10, 'all false')
-ctc_loss = CTCLoss(blank=0, size_average=False, length_average=False, reduce=True)
+ctc_loss = CTCLoss(blank=0, norm_by_batchsize=False, norm_by_total_logits_len=False, reduce=True)
 cost = ctc_loss(log_probs, labels, input_lengths, label_lengths)
 cost.backward()
 print('loss', cost)  #[1.1376063]
@@ -35,15 +35,15 @@ log_probs.grad = None
 
 
 print('-'*10, 'size average')
-ctc_loss = CTCLoss(blank=0, size_average=True, length_average=False, reduce=True)
+ctc_loss = CTCLoss(blank=0, norm_by_batchsize=True, norm_by_total_logits_len=False, reduce=True)
 cost = ctc_loss(log_probs, labels, input_lengths, label_lengths)
 cost.backward()
 print('loss', cost)  #[1.1376063]
 print(log_probs.grad.detach().numpy())
 log_probs.grad = None
 
-print('-'*10, 'length_average')
-ctc_loss = CTCLoss(blank=0, size_average=False, length_average=True, reduce=True)
+print('-'*10, 'norm_by_total_logits_len')
+ctc_loss = CTCLoss(blank=0, norm_by_batchsize=False, norm_by_total_logits_len=True, reduce=True)
 cost = ctc_loss(log_probs, labels, input_lengths, label_lengths)
 cost.backward()
 print('loss', cost)  #[1.1376063]
