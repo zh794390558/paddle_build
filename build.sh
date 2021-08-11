@@ -39,7 +39,7 @@ function cmake_gen() {
           -DWITH_DGC=ON \
           -DWITH_MKL=OFF \
           -DWITH_AVX=ON \
-          -DWITH_TESTING=OFF \
+          -DWITH_TESTING=ON \
           -DWITH_INFERENCE_API_TEST=ON \
           -DWITH_PYTHON=ON \
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \

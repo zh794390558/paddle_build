@@ -1,6 +1,7 @@
 # declarative mode
 import numpy as np
 import paddle
+paddle.set_device('cpu')
 # length of the longest logit sequence
 max_seq_length = 4 #length of the longest label sequence
 max_label_length = 3
@@ -77,6 +78,20 @@ loss = paddle.nn.CTCLoss(blank=0, reduction='sum')(log_probs, labels,
 			label_lengths,
 			size_average=False,
 			length_average=True)
+print('loss', loss)  #[1.1376063]
+loss.backward()
+print('grad', log_probs.grad)
+print(log_probs.grad.shape)
+print(log_probs.shape)
+log_probs.clear_gradient()
+
+print('-'*10)
+loss = paddle.nn.CTCLoss(blank=0, reduction='sum')(log_probs, labels,
+			input_lengths,
+			label_lengths,
+			norm_by_times=True,
+			size_average=False,
+			length_average=False)
 print('loss', loss)  #[1.1376063]
 loss.backward()
 print('grad', log_probs.grad)
