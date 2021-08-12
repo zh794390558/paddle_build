@@ -1,7 +1,7 @@
 # declarative mode
 import numpy as np
 import paddle
-paddle.set_device('cpu')
+paddle.set_device('gpu:0')
 # length of the longest logit sequence
 max_seq_length = 4 #length of the longest label sequence
 max_label_length = 3
