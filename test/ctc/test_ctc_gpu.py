@@ -50,7 +50,7 @@ loss = paddle.nn.CTCLoss(blank=0, reduction='sum')(log_probs, labels,
 			norm_by_total_logits_len=False)
 print('loss', loss)  #[1.1376063]
 loss.backward()
-print('grad', log_probs.grad)
+print('grad', log_probs.gradient())
 print(log_probs.grad.shape)
 print(log_probs.shape)
 log_probs.clear_gradient()
@@ -67,7 +67,7 @@ loss = paddle.nn.CTCLoss(blank=0, reduction='sum')(log_probs, labels,
 			norm_by_total_logits_len=False)
 print('loss', loss)  #[1.1376063]
 loss.backward()
-print('grad', log_probs.grad)
+print('grad', log_probs.gradient())
 print(log_probs.grad.shape)
 print(log_probs.shape)
 log_probs.clear_gradient()
@@ -80,7 +80,7 @@ loss = paddle.nn.CTCLoss(blank=0, reduction='sum')(log_probs, labels,
 			norm_by_total_logits_len=True)
 print('loss', loss)  #[1.1376063]
 loss.backward()
-print('grad', log_probs.grad)
+print('grad', log_probs.gradient())
 print(log_probs.grad.shape)
 print(log_probs.shape)
 log_probs.clear_gradient()
@@ -94,7 +94,7 @@ loss = paddle.nn.CTCLoss(blank=0, reduction='sum')(log_probs, labels,
 			norm_by_total_logits_len=False)
 print('loss', loss)  #[1.1376063]
 loss.backward()
-print('grad', log_probs.grad)
+print('grad', log_probs.gradient())
 print(log_probs.grad.shape)
 print(log_probs.shape)
 log_probs.clear_gradient()
