@@ -7,6 +7,7 @@ cmake -DPY_VERSION=3.7 \
       -DWITH_AVX=ON \
       -DWITH_MKL=ON \
       -DWITH_GPU=ON \
+      -DCUDA_ARCH_NAME=Auto \
       -DWITH_TENSORRT=OFF \
       -DTENSORRT_ROOT=/usr/local/TensorRT-7.1.3.4/ \
       -DON_INFER=ON \
