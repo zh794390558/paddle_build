@@ -44,3 +44,7 @@ somewhere/Paddle/build-paddle $ ./build_ios.sh armv7
 ```
 ## Reference
 * https://github.com/Xreki/build_paddle.git
+
+## others
+* scripts -  build paddle
+* notebook - align paddle with torch
