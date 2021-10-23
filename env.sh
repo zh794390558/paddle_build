@@ -52,8 +52,8 @@ function set_python_env() {
     export LD_LIBRARY_PATH=/opt/python/${PYTHON_ABI}/lib:${LD_LIBRARY_PATH}
     export PATH=/opt/python/${PYTHON_ABI}/bin/:${PATH}
   else
-    pyver=`python --version | awk '{print $2}'`
-    if [ $PY_VERSION != $pyver ]; then
+    pyver=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:3])))')
+    if [ "$PY_VERSION" != "$pyver" ]; then
       echo "python version is not $PY_VERSION: $pyver"
       echo "source python${PY_VERSION} venv first."
       exit -1
