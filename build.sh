@@ -158,8 +158,8 @@ function main() {
       ;;
     *)
       name=`basename $0 .sh`
-      echo "Usage: $name [version|cmake|build|inference_lib|run]"
-      exit 0 
+      echo "Usage: $name [version|cmake|build|inference_lib|run|clean]"
+      exit 0
       ;;
   esac
   echo "Main Done."
