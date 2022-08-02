@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.14)
-project(tensortest LANGUAGES CXX)
+project(u2 LANGUAGES CXX)
 
 find_package(Threads REQUIRED)
-
 find_package (PythonLibs REQUIRED)
 find_package (Python3 REQUIRED)
 find_package(pybind11 CONFIG)
@@ -29,8 +28,20 @@ message(STATUS PADDLE_COMPILE_FLAGS= ${PADDLE_COMPILE_FLAGS})
 string(STRIP ${PADDLE_COMPILE_FLAGS} PADDLE_COMPILE_FLAGS)
 
 
-set(name main)
-add_executable(${name} main.cc)
+set(name main_test)
+add_executable(${name} main_test.cc)
 target_compile_options(${name} PUBLIC ${PADDLE_COMPILE_FLAGS})
 target_include_directories(${name} PUBLIC ${pybind11_INCLUDE_DIRS})
 target_link_libraries(${name} ${PYTHON_LIBRARIES} ${PADDLE_LINK_FLAGS})
+
+add_subdirectory(core)
+
+add_executable(main main.cc)
+target_link_libraries(main decoder)
+
+
+enable_testing()
+add_test(
+    NAME main_test
+    COMMAND $<TARGET_FILE:main_test>
+)
