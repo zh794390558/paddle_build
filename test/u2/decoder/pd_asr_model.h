@@ -66,6 +66,8 @@ private:
 
     std::shared_ptr<paddle::jit::BaseFunction> forward_encoder_chunk_;
     std::shared_ptr<paddle::jit::BaseFunction> forward_attention_decoder_;
+    std::shared_ptr<paddle::jit::BaseFunction> ctc_activation_;
 };
+
 
 } // namespace ppspeech

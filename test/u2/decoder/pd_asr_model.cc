@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <cassert>
+#include <cstring>
 
 namespace ppspeech{
 
@@ -45,6 +46,7 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix){
 
     forward_encoder_chunk_ = model_->Function("jit.forward_encoder_chunk");
     forward_attention_decoder_ = model_->Function("jit.forward_attention_decoder");
+    ctc_activation_ = model_->Function("jit.ctc_activation");
 
     std::cout << "Paddle Model Info: " << std::endl;
     std::cout << "\tsubsampling_rate " << subsampling_rate_<< std::endl;
@@ -64,6 +66,7 @@ PaddleAsrModel::PaddleAsrModel(const PaddleAsrModel& other){
   is_bidecoder_ = other.is_bidecoder_;
   chunk_size_ = other.chunk_size_;
   num_left_chunks_ = other.num_left_chunks_;
+
   offset_ = other.offset_;
 
   // copy model ptr
@@ -92,8 +95,88 @@ void PaddleAsrModel::Reset(){
 void PaddleAsrModel::ForwardEncoderChunkImpl(
     const std::vector<std::vector<float>>& chunk_feats,
     std::vector<std::vector<float>>* out_prob){
-    // TODO: impl
     
+    //1. splice cached_feature, and chunk_feats
+    // First dimension is B, which is 1.
+    int num_frames = cached_feats_.size() + chunk_feats.size();
+    const int feature_dim = chunk_feats[0].size();
+
+    // feats (B=1,T,D)
+    paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
+    float* feats_ptr = feats.mutable_data<float>();
+
+    for(size_t i = 0; i < cached_feats_.size(); ++i){
+        float* row = feats_ptr + i*feature_dim;
+        // for (int j = 0; j < feature_dim; ++j){
+        //     row[j] = cached_feats_[i].data()[j];
+        // }
+        std::memcpy(row, cached_feats_[i].data(), feature_dim * sizeof(float));
+    }
+    for(size_t i = 0; i < chunk_feats.size(); ++i){
+        float* row = feats_ptr + (cached_feats_.size() + i) * feature_dim;
+        // for (int j =0; j < feature_dim; ++j){
+        //     row[j] = chunk_feats[i].data()[j];
+        // }
+        std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
+    }
+
+    // Endocer chunk forward
+#ifdef USE_GPU
+    feats = feats.copy_to(paddle::GPUPlace(), /*blocking*/ false );
+    att_cache_ = att_cache_.copy_to(paddle::GPUPlace()), /*blocking*/ false;
+    cnn_cache_ = cnn_cache_.copy_to(Paddle::GPUPlace(), /*blocking*/ false);
+#endif
+
+    int required_cache_size = num_left_chunks_ * chunk_size_; // -1 * 16
+    paddle::Tensor offset = paddle::full({}, offset_, paddle::DataType::INT32);
+    // freeze `required_cache_size` in graph, so not specific it in function call.
+    std::vector<paddle::Tensor> inputs = {feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
+    std::vector<paddle::Tensor> outputs = (*forward_encoder_chunk_)(inputs);
+    assert(outputs.size() == 3);
+
+#ifdef USE_GPU
+    paddle::Tensor chunk_out = outputs[0].copy_to(paddle::CPUPlace());
+    att_cache_ = outputs[1].copy_to(paddle::CPUPlace());
+    cnn_cache_ = outputs[2].copy_to(paddle::CPUPlace());
+#else
+    paddle::Tensor chunk_out = outputs[0];
+    att_cache_ = outputs[1];
+    cnn_cache_ = outputs[2];
+#endif
+
+    // current offset in decoder frame
+    offset_ += chunk_out.shape()[1];
+
+#ifdef USE_GPU
+#error "Not implementation."
+#else
+    // ctc_activation == log_softmax
+    inputs.clear();
+    outputs.clear();
+    inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
+    outputs = (*ctc_activation_)(inputs);
+    paddle::Tensor ctc_log_probs = outputs[0];
+    // collects encoder outs.
+    encoder_outs_.push_back(std::move(chunk_out));
+#endif
+
+    // Copy to output, (B=1,T,D)
+    std::vector<int64_t> ctc_log_probs_shape = ctc_log_probs.shape();
+    int B = ctc_log_probs_shape[0];
+    assert(B==1);
+    int T = ctc_log_probs_shape[1];
+    int D = ctc_log_probs_shape[2];
+
+    float* ctc_log_probs_ptr = ctc_log_probs.data<float>();
+    out_prob->resize(T);
+    for (int i = 0; i < T; i++){
+        (*out_prob)[i].resize(D);
+        float* dst_ptr = (*out_prob)[i].data();
+        float* src_ptr =  ctc_log_probs_ptr + (i*D);
+        std::memcpy(dst_ptr, src_ptr, D * sizeof(float));
+    }
+
+    return;
 }
 
 float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob, const std::vector<int>& hyp, int eos){

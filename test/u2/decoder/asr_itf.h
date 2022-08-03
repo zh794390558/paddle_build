@@ -51,19 +51,20 @@ protected:
     virtual void CacheFeature(const std::vector<std::vector<float>>& chunk_feats);
 
 protected:
+    // model specification
     int right_context_ = 1; 
     int subsampling_rate_ = 1;
     
     int sos_ = 0;
     int eos_ = 0;
 
+    bool is_bidecoder_ = false;
+
     int chunk_size_ = 16; // num of decoder frames. If chunk_size > 0, streaming case. Otherwise, none streaming case
     int num_left_chunks_ = -1; // -1 means all left chunks
 
-    int offset_ = 0; // 
-
-    bool is_bidecoder_ = false;
-
+    // asr decoder state
+    int offset_ = 0; // current offset in encoder output time stamp. Used by position embedding.
     std::vector<std::vector<float>> cached_feats_; // features cache
 };
 
