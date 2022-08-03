@@ -1,7 +1,7 @@
 // Copyright 2022 Horizon Robotics. All Rights Reserved.
 // Author: binbin.zhang@horizon.ai (Binbin Zhang)
 
-#include "core/asr_itf.h"
+#include "decoder/asr_itf.h"
 
 #include <limits>
 

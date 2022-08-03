@@ -19,7 +19,7 @@
 #include <string>
 #include <memory>
 
-#include "core/asr_itf.h"
+#include "decoder/asr_itf.h"
 
 #include "paddle/extension.h"
 #include "paddle/phi/api/all.h"
@@ -51,7 +51,7 @@ protected:
         const std::vector<std::vector<float>>& chunk_feats,
         std::vector<std::vector<float>>* ctc_probs ) override;
 
-    float ComputeAttentionScore(const paddle::Tensor& prob,
+    float ComputePathScore(const paddle::Tensor& prob,
             const std::vector<int>& hyp, int eos);
 
 

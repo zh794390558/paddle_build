@@ -34,7 +34,7 @@ target_compile_options(${name} PUBLIC ${PADDLE_COMPILE_FLAGS})
 target_include_directories(${name} PUBLIC ${pybind11_INCLUDE_DIRS})
 target_link_libraries(${name} ${PYTHON_LIBRARIES} ${PADDLE_LINK_FLAGS})
 
-add_subdirectory(core)
+add_subdirectory(decoder)
 
 add_executable(main main.cc)
 target_link_libraries(main decoder)
