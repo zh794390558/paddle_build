@@ -101,6 +101,9 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int num_frames = cached_feats_.size() + chunk_feats.size();
     const int feature_dim = chunk_feats[0].size();
 
+    std::cout << "num_frames: " << num_frames << std::endl;
+    std::cout << "feature_dim: " << feature_dim << std::endl;
+
     // feats (B=1,T,D)
     paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
     float* feats_ptr = feats.mutable_data<float>();
@@ -120,6 +123,18 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
     }
 
+
+    std::cout << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2] << std::endl; 
+    for (int i = 0; i < feats.numel(); i++){
+        std::cout << feats_ptr[i] << " ";
+        if ( (i+1) % feature_dim == 0){
+            std::cout << std::endl;
+        }
+    }
+    std::cout << std::endl;
+
+
+
     // Endocer chunk forward
 #ifdef USE_GPU
     feats = feats.copy_to(paddle::GPUPlace(), /*blocking*/ false );
@@ -128,7 +143,8 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
 #endif
 
     int required_cache_size = num_left_chunks_ * chunk_size_; // -1 * 16
-    paddle::Tensor offset = paddle::full({}, offset_, paddle::DataType::INT32);
+    // must be scalar, but paddle do not have scalar.
+    paddle::Tensor offset = paddle::full({1}, offset_, paddle::DataType::INT32);
     // freeze `required_cache_size` in graph, so not specific it in function call.
     std::vector<paddle::Tensor> inputs = {feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
     std::vector<paddle::Tensor> outputs = (*forward_encoder_chunk_)(inputs);

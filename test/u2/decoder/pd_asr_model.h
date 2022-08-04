@@ -46,14 +46,14 @@ public:
 
     std::shared_ptr<AsrModelItf> Copy() const override;
 
-protected:
+// protected:
+public:
     void ForwardEncoderChunkImpl(
         const std::vector<std::vector<float>>& chunk_feats,
         std::vector<std::vector<float>>* ctc_probs ) override;
 
     float ComputePathScore(const paddle::Tensor& prob,
             const std::vector<int>& hyp, int eos);
-
 
 private:
     phi::Place dev_;
