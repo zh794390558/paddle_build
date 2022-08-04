@@ -6,8 +6,6 @@ int main(void){
     model.Read("chunk_wenetspeech_static/export.jit");
 
 
-    // auto encoder_out = paddle::full({1, 20, 512}, 1, paddle::DataType::FLOAT32, phi::CPUPlace());
-
     std::vector<std::vector<float>> chunk_feats; // [T,D=80]
     std::vector<std::vector<float>> out_prob;
 
@@ -30,6 +28,8 @@ int main(void){
         }
     } 
     std::cout << std::endl;
+
+    
 
     // std::vector<float> scores;
     // std::vector<std::vector<int>> hyps(10, std::vector<int>(8, 10));
