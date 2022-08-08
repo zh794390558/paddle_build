@@ -101,8 +101,10 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int num_frames = cached_feats_.size() + chunk_feats.size();
     const int feature_dim = chunk_feats[0].size();
 
+#ifdef DEBUG
     std::cout << "num_frames: " << num_frames << std::endl;
     std::cout << "feature_dim: " << feature_dim << std::endl;
+#endif
 
     // feats (B=1,T,D)
     paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
@@ -123,7 +125,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
     }
 
-
+#ifdef DEBUG
     std::cout << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2] << std::endl; 
     for (int i = 0; i < feats.numel(); i++){
         std::cout << feats_ptr[i] << " ";
@@ -132,7 +134,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         }
     }
     std::cout << std::endl;
-
+#endif
 
 
     // Endocer chunk forward

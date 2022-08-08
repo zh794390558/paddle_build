@@ -40,3 +40,31 @@ func = getattr(layer, 'jit.ctc_activation')
 ys = func(xs)
 print('log_probs', ys[0].numpy())
 print('log_probs shape', ys[0].shape)
+
+
+# print("###################")
+# # ######################### infer_model.forward_attention_decoder ########################
+# B = 2
+# U = 8
+# hyps = paddle.full(shape=[B, U], fill_value=10, dtype='int64') # hyps
+# hyp_lens = paddle.full(shape=[B], fill_value=8, dtype='int64') # hyps lens
+# encoder_outs = paddle.full(shape=[1, 20, 512], fill_value=1, dtype='float32') # encoder outs
+
+# func = getattr(layer, 'jit.forward_attention_decoder')
+# out2 = func(hyps, hyp_lens, encoder_outs)
+# print("decoder logits", out2[0])
+# print("decoder logits", out2[0].shape)
+
+
+print("###################")
+# ######################### infer_model.forward_attention_decoder ########################
+B = 1
+U = 8 # <=7 fatal
+hyps = paddle.full(shape=[B, U], fill_value=10, dtype='int64') # hyps
+hyp_lens = paddle.full(shape=[B], fill_value=8, dtype='int64') # hyps lens
+encoder_outs = paddle.full(shape=[1, 20, 512], fill_value=1, dtype='float32') # encoder outs
+
+func = getattr(layer, 'jit.forward_attention_decoder')
+out2 = func(hyps, hyp_lens, encoder_outs)
+print("decoder logits", out2[0])
+print("decoder logits", out2[0].shape)
