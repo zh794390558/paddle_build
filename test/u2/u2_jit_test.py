@@ -2,7 +2,7 @@ import paddle
 
 
 import numpy as np
-#np.set_printoptions(threshold=np.inf)
+np.set_printoptions(threshold=np.inf)
 
 paddle.set_device('cpu')
 
@@ -60,11 +60,19 @@ print("###################")
 # ######################### infer_model.forward_attention_decoder ########################
 B = 1
 U = 8 # <=7 fatal
+
+# add sos
 hyps = paddle.full(shape=[B, U], fill_value=10, dtype='int64') # hyps
-hyp_lens = paddle.full(shape=[B], fill_value=8, dtype='int64') # hyps lens
+sos = paddle.full(shape=[B,1], fill_value=5537, dtype='int64')
+hyps = paddle.concat([sos, hyps], axis=-1)
+
+hyp_lens = paddle.full(shape=[B], fill_value=U+1, dtype='int64') # hyps lens
+
 encoder_outs = paddle.full(shape=[1, 20, 512], fill_value=1, dtype='float32') # encoder outs
 
 func = getattr(layer, 'jit.forward_attention_decoder')
 out2 = func(hyps, hyp_lens, encoder_outs)
-print("decoder logits", out2[0])
+print("decoder logits", out2[0].numpy())
 print("decoder logits", out2[0].shape)
+print("hyps:", hyps)
+print("hyps len:", hyp_lens)

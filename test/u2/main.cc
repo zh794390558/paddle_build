@@ -29,12 +29,15 @@ int main(void){
     } 
     std::cout << std::endl;
 
-    
+    std::cout << "==============================" << std::endl;
 
-    // std::vector<float> scores;
-    // std::vector<std::vector<int>> hyps(10, std::vector<int>(8, 10));
-    // model.AttentionRescoring(hyps, 0, &scores);
-    // std::cout << scores[0] << std::endl;
+    std::vector<float> scores;
+    std::vector<std::vector<int>> hyps(1, std::vector<int>(8, 10));
+    paddle::Tensor encoder_out = paddle::full({20, 512}, 1.0, paddle::DataType::FLOAT32);
+    model.FeedEncoderOuts(encoder_out);
+
+    model.AttentionRescoring(hyps, 0, &scores);
+    std::cout << "att rescore: " << scores.size() << " " << scores[0] << std::endl;
 
     return 0;
 }

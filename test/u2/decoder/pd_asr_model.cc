@@ -197,6 +197,12 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     return;
 }
 
+void PaddleAsrModel::FeedEncoderOuts(paddle::Tensor& encoder_out){
+    // encoder_out (T,D)
+    encoder_outs_.clear();
+    encoder_outs_.push_back(encoder_out);
+}
+
 float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob, const std::vector<int>& hyp, int eos){
     // sum `hyp` path scores in `prob`
     // prob (1, Umax, V)
@@ -259,9 +265,31 @@ void PaddleAsrModel::AttentionRescoring(const std::vector<std::vector<int>>& hyp
 
     std::vector<paddle::experimental::Tensor> inputs{hyps_tensor, hyps_lens, encoder_out};
     std::vector<paddle::Tensor> outputs = (*forward_attention_decoder_)(inputs);
-    std::cout << "dddd" << outputs[0].data<float>()[0] << std::endl;
-
     assert(outputs.size() == 1); // not support backward decoder
+
+#ifndef DEBUG
+    float* fwd_ptr = outputs[0].data<float>();
+    for (int i = 0; i < outputs[0].numel(); ++i){
+         std::cout << fwd_ptr[i] << " ";
+         if ((i+1)% 5 == 0){
+             std::cout << std::endl;
+         }
+    }
+    std::cout << std::endl;
+
+    std::cout << "encoder_out  shape: "<< std::endl;
+    for (auto d : encoder_out.shape()){
+        std::cout << d << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "decoder output shape: "<< std::endl;
+    for (auto d : outputs[0].shape()){
+        std::cout << d << " ";
+    }
+    std::cout << std::endl;
+#endif
+
 
     // (B, Umax, V)
     paddle::Tensor probs = outputs[0];

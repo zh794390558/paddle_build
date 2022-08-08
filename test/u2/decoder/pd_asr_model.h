@@ -46,6 +46,10 @@ public:
 
     std::shared_ptr<AsrModelItf> Copy() const override;
 
+
+    // debug
+    void FeedEncoderOuts(paddle::Tensor& encoder_out);
+
 // protected:
 public:
     void ForwardEncoderChunkImpl(
