@@ -197,6 +197,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     return;
 }
 
+// Debug api
 void PaddleAsrModel::FeedEncoderOuts(paddle::Tensor& encoder_out){
     // encoder_out (T,D)
     encoder_outs_.clear();
@@ -261,13 +262,12 @@ void PaddleAsrModel::AttentionRescoring(const std::vector<std::vector<int>>& hyp
     }
     // forward attention decoder by hyps and correspoinding encoder_outs_
     paddle::Tensor encoder_out = paddle::concat(encoder_outs_, 1);
-    // auto encoder_out = paddle::full({1, 20, 512}, 1, paddle::DataType::FLOAT32, phi::CPUPlace());
 
     std::vector<paddle::experimental::Tensor> inputs{hyps_tensor, hyps_lens, encoder_out};
     std::vector<paddle::Tensor> outputs = (*forward_attention_decoder_)(inputs);
     assert(outputs.size() == 1); // not support backward decoder
 
-#ifndef DEBUG
+#ifdef DEBUG
     float* fwd_ptr = outputs[0].data<float>();
     for (int i = 0; i < outputs[0].numel(); ++i){
          std::cout << fwd_ptr[i] << " ";

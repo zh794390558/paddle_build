@@ -17,6 +17,7 @@ public:
     virtual int eos() const { return eos_; }
     virtual int sos() const { return sos_; }
     virtual int is_bidecoder() const {return is_bidecoder_;}
+    // current offset in decoder frame
     virtual int offset() const {return offset_;}
 
     virtual void set_chunk_size(int chunk_size) {
@@ -52,7 +53,7 @@ protected:
 
 protected:
     // model specification
-    int right_context_ = 1; 
+    int right_context_ = 0; 
     int subsampling_rate_ = 1;
     
     int sos_ = 0;

@@ -6,7 +6,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
-option(USE_TEST "whether to build unit test" OFF)
+option(USE_TEST "whether to build unit test" ON)
 
 # third party
 include(FetchContent)
@@ -57,16 +57,21 @@ message(STATUS PADDLE_COMPILE_FLAGS= ${PADDLE_COMPILE_FLAGS})
 string(STRIP ${PADDLE_COMPILE_FLAGS} PADDLE_COMPILE_FLAGS)
 
 
+set(PADDLE_LIB_DIRS /workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/libs/)
+
+# inclues
+include_directories(${PROJECT_SOURCE_DIR})
+
 # Include all dependency
 
 
 # submodule
+add_subdirectory(utils)
 add_subdirectory(decoder)
 
 # bins
 add_executable(main main.cc)
-target_link_libraries(main decoder)
-
+target_link_libraries(main decoder utils)
 
 
 # test bins
@@ -77,10 +82,12 @@ target_include_directories(${name} PUBLIC ${pybind11_INCLUDE_DIRS})
 target_link_libraries(${name} ${PYTHON_LIBRARIES} ${PADDLE_LINK_FLAGS})
 
 if(USE_TEST)
-    include(gtest)
     enable_testing()
-    add_test(
-        NAME main_test
-        COMMAND $<TARGET_FILE:main_test>
-    )
+    include(gtest)
+    add_subdirectory(test)
+
+    # add_test(
+    #     NAME main_test
+    #     COMMAND $<TARGET_FILE:main_test>
+    # )
 endif()
