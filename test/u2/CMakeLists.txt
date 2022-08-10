@@ -67,7 +67,9 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 # submodule
 add_subdirectory(utils)
+add_subdirectory(frontend)
 add_subdirectory(decoder)
+
 
 # bins
 add_executable(main main.cc)
