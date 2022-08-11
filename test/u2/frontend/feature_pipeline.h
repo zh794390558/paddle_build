@@ -19,7 +19,7 @@
 
 #include "frontend/fbank.h"
 #include "utils/block_queue.h"
-#include "utils/logging.h"
+#include "utils/log.h"
 
 namespace ppspeech {
 

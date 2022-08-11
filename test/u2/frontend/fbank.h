@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "frontend/fft.h"
-#include "utils/logging.h"
+#include "utils/log.h"
 
 namespace ppspeech {
 
