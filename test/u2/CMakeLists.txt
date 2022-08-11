@@ -59,10 +59,12 @@ string(STRIP ${PADDLE_COMPILE_FLAGS} PADDLE_COMPILE_FLAGS)
 
 set(PADDLE_LIB_DIRS /workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/libs/)
 
-# inclues
-include_directories(${PROJECT_SOURCE_DIR})
 
 # Include all dependency
+include(openfst)
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 
 # submodule
