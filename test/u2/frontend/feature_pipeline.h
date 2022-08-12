@@ -28,6 +28,7 @@ struct FeaturePipelineConfig{
     int sample_rate;    // 16k 
     int frame_length;   // points in 25ms
     int frame_shift;    // points in 10ms
+    
     FeaturePipelineConfig(int num_bins, int sample_rate) 
     : num_bins(num_bins), sample_rate(sample_rate) {
         frame_length = sample_rate / 1000 * 25;
