@@ -34,7 +34,6 @@
 
 namespace ppspeech {
 
-class CtcWfstBeamSearchOptions;
 class PostProcessor;
 
 struct DecoderOptions{
@@ -55,7 +54,7 @@ struct DecoderOptions{
     float reverse_weith = 0.0;
     CtcEndpointConfig ctc_endpoint_config;
     CtcPrefixBeamSearchOptions ctc_prefix_search_opts;
-    CtcWfstBeamSearchOptions ctc_wfst_search_opts;
+    // CtcWfstBeamSearchOptions ctc_wfst_search_opts;
 };
 
 struct WordPiece{
