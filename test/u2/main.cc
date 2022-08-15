@@ -1,7 +1,7 @@
 #include "decoder/pd_asr_model.h"
 #include <algorithm>
 
-int main(void){
+int main(void) {
     ppspeech::PaddleAsrModel model;
     model.Read("chunk_wenetspeech_static/export.jit");
 

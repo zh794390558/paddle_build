@@ -75,8 +75,8 @@ DEFINE_string(unit_path, "",
               "with/without LM scenarios for context/timestamp");
 
 // context flags
-DEFINE_string(contex_path, "", "context paht, is used to build context graph")
-DEFINE_double(contex_score, 3.0, "is used to rescore the decoded result");
+DEFINE_string(context_path, "", "context paht, is used to build context graph");
+DEFINE_double(context_score, 3.0, "is used to rescore the decoded result");
 
 // PostProcessOptions flags
 DEFINE_int32(language_type, 0, 
@@ -94,7 +94,7 @@ std::shared_ptr<FeaturePipelineConfig> InitFeaturePipelineConfigFromFlags(){
 }
 
 std::shared_ptr<DecodeOptions> InitDecodeOptionsFromFlags(){
-    auto decode_config = std::make_shared<DecoderOptions>();
+    auto decode_config = std::make_shared<DecodeOptions>();
     decode_config->chunk_size = FLAGS_chunk_size;
     decode_config->num_left_chunks = FLAGS_num_left_chunks;
     decode_config->ctc_weight = FLAGS_ctc_weight;
@@ -148,7 +148,7 @@ std::shared_ptr<DecodeResource> InitDecodeResourceFromFlags() {
     }
 
     // context
-    if (!FLAGS_contex_path.empty()){
+    if (!FLAGS_context_path.empty()) {
         LOG(INFO) << "Reading context " << FLAGS_context_path;
         std::vector<std::string> contexts;
         std::ifstream infile(FLAGS_context_path);
@@ -156,8 +156,8 @@ std::shared_ptr<DecodeResource> InitDecodeResourceFromFlags() {
         while (getline(infile, context)) {
             contexts.emplace_back(Trim(context));
         }
-        ContextConfig config;
-        config.context_score = FLAGS_context_score;
+        // ContextConfig config;
+        // config.context_score = FLAGS_context_score;
         // resource->context_graph = std::make_shared<CotextGraph>(config);
         // resource->context_graph->BuildContextGraph(contexts,
         //                                         resource->symbol_table);

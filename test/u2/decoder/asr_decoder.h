@@ -36,7 +36,7 @@ namespace ppspeech {
 
 class PostProcessor;
 
-struct DecoderOptions{
+struct DecodeOptions{
     // chunk_size is the frame number of one chunk after subsampling.
     // e.g. if subsample rate is 4 and chunk_size = 16, the frames in
     // one chunk are 67=16*4 + 3, stride is 64=16*4
@@ -51,7 +51,7 @@ struct DecoderOptions{
     // So we should carefully set ctc_weight accroding to the search methods.
     float ctc_weight = 0.5;
     float rescoring_weight = 1.0;
-    float reverse_weith = 0.0;
+    float reverse_weight = 0.0;
     CtcEndpointConfig ctc_endpoint_config;
     CtcPrefixBeamSearchOptions ctc_prefix_search_opts;
     // CtcWfstBeamSearchOptions ctc_wfst_search_opts;
@@ -101,7 +101,7 @@ class AsrDecoder{
 public:
     AsrDecoder(std::shared_ptr<FeaturePipeline> feature_pipeline,
         std::shared_ptr<DecodeResource> resource,
-        const DecoderOptions& opts);
+        const DecodeOptions& opts);
 
     // @param block: if true, block when feature is not enough for one chunk
     //               inference. Otherwise, return kWaitFeats.
@@ -110,7 +110,7 @@ public:
     void Rescoring();
     void Reset();
     void ResetContinuousDecoding();
-    bool DecodedSomothing() const{
+    bool DecodedSomething() const{
         return !result_.empty() && !result_[0].sentence.empty();
     }
 
@@ -148,7 +148,7 @@ private:
     // e2e unit symbol table
     std::shared_ptr<fst::SymbolTable> unit_table_ = nullptr;
 
-    const DecoderOptions& opts_;
+    const DecodeOptions& opts_;
 
     //cache feature
     bool start_ = false; // false, this is first frame.

@@ -20,7 +20,7 @@ namespace ppspeech {
 // especially useful for classes containing only static methods.
 #define DISALLOW_IMPLICIT_CONSTRUCTORS(TypeName) \
   TypeName();                                    \
-  DISALLOW_COPY_AND_ASSIGN(TypeName)
+  DISALLOW_COPY_AND_ASSIGN(TypeName);
 
 
 const float kFloatMax = std::numeric_limits<float>::max();

@@ -77,6 +77,8 @@ add_subdirectory(decoder)
 add_executable(main main.cc)
 target_link_libraries(main decoder utils)
 
+add_executable(decoder_main decoder_main.cc)
+target_link_libraries(decoder_main decoder utils frontend fst)
 
 # test bins
 set(name main_test)

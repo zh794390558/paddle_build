@@ -4,6 +4,7 @@ asr_itf.cc
 pd_asr_model.cc
 ctc_prefix_beam_search.cc
 asr_decoder.cc
+ctc_endpoint.cc
 )
 
 add_library(decoder STATIC ${decoder_srcs})

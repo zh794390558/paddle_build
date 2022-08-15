@@ -26,7 +26,7 @@ namespace ppspeech{
 AsrDecoder::AsrDecoder(
     std::shared_ptr<FeaturePipeline> feature_pipeline,
     std::shared_ptr<DecodeResource> resource,
-    const DecoderOptions& opts)
+    const DecodeOptions& opts)
     : feature_pipeline_(std::move(feature_pipeline)),
     // Make a copy of the model ASR model since we will change the inner
     // status of the model
@@ -55,15 +55,25 @@ AsrDecoder::AsrDecoder(
 }
 
 void AsrDecoder::Reset(){
+    global_frame_offset_ = 0;
     start_ = false;
     result_.clear();
     num_frames_ = 0;
-    global_frame_offset_ = 0;
-   
+
     feature_pipeline_->Reset();
     model_->Reset();
     searcher_->Reset();
-    // ctc_endpointer_->Reset();
+    ctc_endpointer_->Reset();
+}
+
+void AsrDecoder::ResetContinuousDecoding(){
+    global_frame_offset_ = num_frames_;
+    start_ = false;
+    result_.clear();
+
+    model_->Reset();
+    searcher_->Reset();
+    ctc_endpointer_->Reset();
 }
 
 DecodeState AsrDecoder::Decode(bool block){
@@ -110,10 +120,10 @@ DecodeState AsrDecoder::AdvanceDecoding(bool block){
     UpdateResult(false);
 
     if (state != DecodeState::kEndFeats){
-        // if (ctc_endpointer_->IsEndpoint(ctc_log_probs, DecodedSomothing())){
-        //     VLOG(1) << "Endpoint is detected at " << num_frames_;
-        //     state = DecodeState::kEndpoint;
-        // }
+        if (ctc_endpointer_->IsEndpoint(ctc_log_probs, DecodedSomething())){
+            VLOG(1) << "Endpoint is detected at " << num_frames_;
+            state = DecodeState::kEndpoint;
+        }
     }
 
     start_ = true;
@@ -187,7 +197,7 @@ void AsrDecoder::UpdateResult(bool finish){
     }
 
 
-    if (DecodedSomothing()){
+    if (DecodedSomething()){
         VLOG(1) << "Partial CTC result " << result_[0].sentence;
     }
 }
@@ -210,7 +220,7 @@ void AsrDecoder::AttentionRescoring(){
 
     Timer timer;
     std::vector<float> rescoring_score;
-    model_->AttentionRescoring(hypotheses, opts_.reverse_weith, &rescoring_score);
+    model_->AttentionRescoring(hypotheses, opts_.reverse_weight, &rescoring_score);
     VLOG(3) << "Attention Rescoring takes " << timer.Elapsed();
 
     // combine ctc score and rescoring score
