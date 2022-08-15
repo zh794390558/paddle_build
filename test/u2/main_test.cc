@@ -24,7 +24,7 @@ int main (){
 
     std::vector<paddle::experimental::Tensor> inputs{hyps, hyps_lens, encoder_out};
 
-    std::vector<paddle::experimental::Tensor>  outputs = (*layer.Function("jit.forward_attention_decoder"))(inputs);
+    std::vector<paddle::experimental::Tensor>  outputs = layer.Function("forward_attention_decoder")(inputs);
     std::cout << "forward_attention_decoder has " << outputs.size() << " outputs." << std::endl;
     std::cout << "output 0 has " << outputs[0].size() << " elements." <<  std::endl;
     auto data = outputs[0].data<float>();

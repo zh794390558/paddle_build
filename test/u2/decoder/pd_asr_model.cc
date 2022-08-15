@@ -48,7 +48,7 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix){
     // forward_encoder_chunk_ = model_->Function("jit.forward_encoder_chunk");
     // forward_attention_decoder_ = model_->Function("jit.forward_attention_decoder");
     // ctc_activation_ = model_->Function("jit.ctc_activation");
-        forward_encoder_chunk_ = model_->Function("forward_encoder_chunk");
+    forward_encoder_chunk_ = model_->Function("forward_encoder_chunk");
     forward_attention_decoder_ = model_->Function("forward_attention_decoder");
     ctc_activation_ = model_->Function("ctc_activation");
     // CHECK(forward_encoder_chunk_ != nullptr);
@@ -111,26 +111,26 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     VLOG(3)<< "num_frames: " << num_frames;
     VLOG(3)<< "feature_dim: " << feature_dim ;
 
-    // // feats (B=1,T,D)
-    // paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
-    // float* feats_ptr = feats.mutable_data<float>();
+    // feats (B=1,T,D)
+    paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
+    float* feats_ptr = feats.mutable_data<float>();
 
-    // for(size_t i = 0; i < cached_feats_.size(); ++i){
-    //     float* row = feats_ptr + i*feature_dim;
-    //     // for (int j = 0; j < feature_dim; ++j){
-    //     //     row[j] = cached_feats_[i].data()[j];
-    //     // }
-    //     std::memcpy(row, cached_feats_[i].data(), feature_dim * sizeof(float));
-    // }
-    // for(size_t i = 0; i < chunk_feats.size(); ++i){
-    //     float* row = feats_ptr + (cached_feats_.size() + i) * feature_dim;
-    //     // for (int j =0; j < feature_dim; ++j){
-    //     //     row[j] = chunk_feats[i].data()[j];
-    //     // }
-    //     std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
-    // }
+    for(size_t i = 0; i < cached_feats_.size(); ++i){
+        float* row = feats_ptr + i*feature_dim;
+        // for (int j = 0; j < feature_dim; ++j){
+        //     row[j] = cached_feats_[i].data()[j];
+        // }
+        std::memcpy(row, cached_feats_[i].data(), feature_dim * sizeof(float));
+    }
+    for(size_t i = 0; i < chunk_feats.size(); ++i){
+        float* row = feats_ptr + (cached_feats_.size() + i) * feature_dim;
+        // for (int j =0; j < feature_dim; ++j){
+        //     row[j] = chunk_feats[i].data()[j];
+        // }
+        std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
+    }
 
-    paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 1.0f, paddle::DataType::FLOAT32);
+    // paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 1.0f, paddle::DataType::FLOAT32);
     VLOG(3) << "feats shape: " << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2]; 
 
 #ifdef DEBUG
@@ -154,9 +154,9 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int required_cache_size = num_left_chunks_ * chunk_size_; // -1 * 16
     // must be scalar, but paddle do not have scalar.
     paddle::Tensor offset = paddle::full({1}, offset_, paddle::DataType::INT32);
-    VLOG(3) << "offset shape: " << offset.shape()[0] ; 
-    VLOG(3) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
-    VLOG(3) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    // VLOG(3) << "offset shape: " << offset.shape()[0] ; 
+    // VLOG(3) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    // VLOG(3) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
     // freeze `required_cache_size` in graph, so not specific it in function call.
     std::vector<paddle::Tensor> inputs = {feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
     VLOG(3) << "inputs size: " << inputs.size(); 

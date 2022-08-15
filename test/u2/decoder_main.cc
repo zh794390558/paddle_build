@@ -132,6 +132,7 @@ void decode(std::pair<std::string, std::string> wav) {
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, false);
   google::InitGoogleLogging(argv[0]);
+  google::InstallFailureSignalHandler();
 
   g_decode_config = ppspeech::InitDecodeOptionsFromFlags();
   g_feature_config = ppspeech::InitFeaturePipelineConfigFromFlags();
