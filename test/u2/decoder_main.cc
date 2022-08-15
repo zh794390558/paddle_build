@@ -63,9 +63,13 @@ void decode(std::pair<std::string, std::string> wav) {
   while (true) {
     ppspeech::Timer timer;
     ppspeech::DecodeState state = decoder.Decode();
+    LOG(INFO) << "decoder.Decode()";
+
     if (state == ppspeech::DecodeState::kEndFeats) {
       decoder.Rescoring();
+      LOG(INFO) << "decoder.Rescoring()";
     }
+
     int chunk_decode_time = timer.Elapsed();
     decode_time += chunk_decode_time;
     if (decoder.DecodedSomething()) {
@@ -91,6 +95,7 @@ void decode(std::pair<std::string, std::string> wav) {
       auto wait_time =
           decoder.num_frames_in_current_chunk() * frame_shift_in_ms -
           chunk_decode_time;
+          
       if (wait_time > 0) {
         LOG(INFO) << "Simulate streaming, waiting for " << wait_time << "ms";
         std::this_thread::sleep_for(
@@ -154,12 +159,13 @@ int main(int argc, char* argv[]) {
     g_result.open(FLAGS_result, std::ios::out);
   }
 
-  {
-    ThreadPool pool(FLAGS_thread_num);
-    for (auto& wav : waves) {
-      pool.enqueue(decode, wav);
-    }
-  }
+  // {
+  //   ThreadPool pool(FLAGS_thread_num);
+  //   for (auto& wav : waves) {
+  //     pool.enqueue(decode, wav);
+  //   }
+  // }
+  decode(waves[0]);
 
   LOG(INFO) << "Total: decoded " << g_total_waves_dur << "ms audio taken "
             << g_total_decode_time << "ms.";

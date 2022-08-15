@@ -113,6 +113,8 @@ DecodeState AsrDecoder::AdvanceDecoding(bool block){
     std::vector<std::vector<float>> ctc_log_probs;
     model_->ForwardEncoderChunk(chunk_feats, &ctc_log_probs);
     int forward_time = timer.Elapsed();
+    VLOG(3) << "ForwardEncoderChunk()";
+    
     timer.Reset();
     searcher_->Search(ctc_log_probs);
     int search_time = timer.Elapsed();

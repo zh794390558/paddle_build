@@ -68,9 +68,9 @@ private:
     // conformer-only conv_module cache
     paddle::Tensor cnn_cache_ = paddle::full({0,0,0,0}, 0.0);
 
-    std::shared_ptr<paddle::jit::BaseFunction> forward_encoder_chunk_;
-    std::shared_ptr<paddle::jit::BaseFunction> forward_attention_decoder_;
-    std::shared_ptr<paddle::jit::BaseFunction> ctc_activation_;
+    paddle::jit::Function forward_encoder_chunk_;
+    paddle::jit::Function forward_attention_decoder_;
+    paddle::jit::Function ctc_activation_;
 };
 
 

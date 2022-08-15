@@ -9,7 +9,7 @@ int main(void) {
     std::vector<std::vector<float>> chunk_feats; // [T,D=80]
     std::vector<std::vector<float>> out_prob;
 
-    int T = 7;
+    int T = 67;
     int D = 80;
     chunk_feats.resize(T);
     for (int i = 0; i < T; ++i){

@@ -20,8 +20,9 @@
 #include <algorithm>
 #include <stdexcept>
 #include <iostream>
-#include <cassert>
 #include <cstring>
+
+#include "utils/log.h"
 
 namespace ppspeech{
 
@@ -44,10 +45,16 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix){
     eos_ = model_->Attribute<int>("eos_symbol");
     is_bidecoder_ = false;
 
-    forward_encoder_chunk_ = model_->Function("jit.forward_encoder_chunk");
-    forward_attention_decoder_ = model_->Function("jit.forward_attention_decoder");
-    ctc_activation_ = model_->Function("jit.ctc_activation");
-
+    // forward_encoder_chunk_ = model_->Function("jit.forward_encoder_chunk");
+    // forward_attention_decoder_ = model_->Function("jit.forward_attention_decoder");
+    // ctc_activation_ = model_->Function("jit.ctc_activation");
+        forward_encoder_chunk_ = model_->Function("forward_encoder_chunk");
+    forward_attention_decoder_ = model_->Function("forward_attention_decoder");
+    ctc_activation_ = model_->Function("ctc_activation");
+    // CHECK(forward_encoder_chunk_ != nullptr);
+    // CHECK(forward_attention_decoder_ != nullptr);
+    // CHECK(ctc_activation_ != nullptr);
+    
     std::cout << "Paddle Model Info: " << std::endl;
     std::cout << "\tsubsampling_rate " << subsampling_rate_<< std::endl;
     std::cout << "\tright context " << right_context_<< std::endl;
@@ -101,32 +108,32 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int num_frames = cached_feats_.size() + chunk_feats.size();
     const int feature_dim = chunk_feats[0].size();
 
+    VLOG(3)<< "num_frames: " << num_frames;
+    VLOG(3)<< "feature_dim: " << feature_dim ;
+
+    // // feats (B=1,T,D)
+    // paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
+    // float* feats_ptr = feats.mutable_data<float>();
+
+    // for(size_t i = 0; i < cached_feats_.size(); ++i){
+    //     float* row = feats_ptr + i*feature_dim;
+    //     // for (int j = 0; j < feature_dim; ++j){
+    //     //     row[j] = cached_feats_[i].data()[j];
+    //     // }
+    //     std::memcpy(row, cached_feats_[i].data(), feature_dim * sizeof(float));
+    // }
+    // for(size_t i = 0; i < chunk_feats.size(); ++i){
+    //     float* row = feats_ptr + (cached_feats_.size() + i) * feature_dim;
+    //     // for (int j =0; j < feature_dim; ++j){
+    //     //     row[j] = chunk_feats[i].data()[j];
+    //     // }
+    //     std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
+    // }
+
+    paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 1.0f, paddle::DataType::FLOAT32);
+    VLOG(3) << "feats shape: " << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2]; 
+
 #ifdef DEBUG
-    std::cout << "num_frames: " << num_frames << std::endl;
-    std::cout << "feature_dim: " << feature_dim << std::endl;
-#endif
-
-    // feats (B=1,T,D)
-    paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
-    float* feats_ptr = feats.mutable_data<float>();
-
-    for(size_t i = 0; i < cached_feats_.size(); ++i){
-        float* row = feats_ptr + i*feature_dim;
-        // for (int j = 0; j < feature_dim; ++j){
-        //     row[j] = cached_feats_[i].data()[j];
-        // }
-        std::memcpy(row, cached_feats_[i].data(), feature_dim * sizeof(float));
-    }
-    for(size_t i = 0; i < chunk_feats.size(); ++i){
-        float* row = feats_ptr + (cached_feats_.size() + i) * feature_dim;
-        // for (int j =0; j < feature_dim; ++j){
-        //     row[j] = chunk_feats[i].data()[j];
-        // }
-        std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
-    }
-
-#ifdef DEBUG
-    std::cout << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2] << std::endl; 
     for (int i = 0; i < feats.numel(); i++){
         std::cout << feats_ptr[i] << " ";
         if ( (i+1) % feature_dim == 0){
@@ -147,10 +154,15 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int required_cache_size = num_left_chunks_ * chunk_size_; // -1 * 16
     // must be scalar, but paddle do not have scalar.
     paddle::Tensor offset = paddle::full({1}, offset_, paddle::DataType::INT32);
+    VLOG(3) << "offset shape: " << offset.shape()[0] ; 
+    VLOG(3) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    VLOG(3) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
     // freeze `required_cache_size` in graph, so not specific it in function call.
     std::vector<paddle::Tensor> inputs = {feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
-    std::vector<paddle::Tensor> outputs = (*forward_encoder_chunk_)(inputs);
-    assert(outputs.size() == 3);
+    VLOG(3) << "inputs size: " << inputs.size(); 
+    std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
+    VLOG(3) << "outputs size: " << outputs.size(); 
+    CHECK(outputs.size() == 3);
 
 #ifdef USE_GPU
     paddle::Tensor chunk_out = outputs[0].copy_to(paddle::CPUPlace());
@@ -172,7 +184,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     inputs.clear();
     outputs.clear();
     inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
-    outputs = (*ctc_activation_)(inputs);
+    outputs = ctc_activation_(inputs);
     paddle::Tensor ctc_log_probs = outputs[0];
     // collects encoder outs.
     encoder_outs_.push_back(std::move(chunk_out));
@@ -181,7 +193,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     // Copy to output, (B=1,T,D)
     std::vector<int64_t> ctc_log_probs_shape = ctc_log_probs.shape();
     int B = ctc_log_probs_shape[0];
-    assert(B==1);
+    CHECK(B==1);
     int T = ctc_log_probs_shape[1];
     int D = ctc_log_probs_shape[2];
 
@@ -210,8 +222,8 @@ float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob, const std::ve
     // hyp (U,)
     float score = 0.0f;
     std::vector<int64_t> dims = prob.shape();
-    assert(dims.size() == 3);
-    assert(dims[0] == 1);
+    CHECK(dims.size() == 3);
+    CHECK(dims[0] == 1);
     int vocab_dim = static_cast<int>(dims[1]);
 
     const float* prob_ptr = prob.data<float>();
@@ -227,7 +239,7 @@ float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob, const std::ve
 }
 
 void PaddleAsrModel::AttentionRescoring(const std::vector<std::vector<int>>& hyps, float reverse_weight, std::vector<float>* rescoring_score){
-    assert(rescoring_score != nullptr);
+    CHECK(rescoring_score != nullptr);
 
     int num_hyps = hyps.size();
     rescoring_score->resize(num_hyps, 0.0f);
@@ -264,8 +276,8 @@ void PaddleAsrModel::AttentionRescoring(const std::vector<std::vector<int>>& hyp
     paddle::Tensor encoder_out = paddle::concat(encoder_outs_, 1);
 
     std::vector<paddle::experimental::Tensor> inputs{hyps_tensor, hyps_lens, encoder_out};
-    std::vector<paddle::Tensor> outputs = (*forward_attention_decoder_)(inputs);
-    assert(outputs.size() == 1); // not support backward decoder
+    std::vector<paddle::Tensor> outputs = forward_attention_decoder_(inputs);
+    CHECK(outputs.size() == 1); // not support backward decoder
 
 #ifdef DEBUG
     float* fwd_ptr = outputs[0].data<float>();
@@ -294,17 +306,17 @@ void PaddleAsrModel::AttentionRescoring(const std::vector<std::vector<int>>& hyp
     // (B, Umax, V)
     paddle::Tensor probs = outputs[0];
     std::vector<int64_t> probs_shape = probs.shape();
-    assert(probs_shape.size() == 3);
-    assert(probs_shape[0] == num_hyps);
-    assert(probs_shape[1] == max_hyps_len);
+    CHECK(probs_shape.size() == 3);
+    CHECK(probs_shape[0] == num_hyps);
+    CHECK(probs_shape[1] == max_hyps_len);
 
     // fake reverse probs
-    assert(std::fabs(reverse_weight - 0.0f) < std::numeric_limits<float>::epsilon());
+    CHECK(std::fabs(reverse_weight - 0.0f) < std::numeric_limits<float>::epsilon());
     paddle::Tensor r_probs = outputs[0];
     std::vector<int64_t> r_probs_shape = r_probs.shape();
-    assert(r_probs_shape.size() == 3);
-    assert(r_probs_shape[0] == num_hyps);
-    assert(r_probs_shape[1] == max_hyps_len);
+    CHECK(r_probs_shape.size() == 3);
+    CHECK(r_probs_shape[0] == num_hyps);
+    CHECK(r_probs_shape[1] == max_hyps_len);
 
     // compute rescoring score
     using IntArray = paddle::experimental::IntArray;

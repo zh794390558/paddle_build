@@ -4,6 +4,7 @@
 #include "decoder/asr_itf.h"
 
 #include <limits>
+#include "utils/log.h"
 
 
 namespace ppspeech{
@@ -47,8 +48,11 @@ void AsrModelItf::ForwardEncoderChunk(
     std::vector<std::vector<float>>* ctc_probs){
         ctc_probs->clear();
         int num_frames = cached_feats_.size() + chunk_feats.size();
+        VLOG(3)<< "foward encoder chunk: " << num_frames << " frames";
+        VLOG(3) << "context: " << this->context() << " frames";
         if (num_frames >= this->context()){
             this->ForwardEncoderChunkImpl(chunk_feats, ctc_probs);
+            VLOG(3) << "after forward chunk";
             this->CacheFeature(chunk_feats);
         }
 }   

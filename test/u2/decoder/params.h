@@ -124,6 +124,7 @@ std::shared_ptr<DecodeResource> InitDecodeResourceFromFlags() {
      LOG(FATAL) << "Not impl onnx.";   
     } else {
         LOG(INFO) << "Reading paddle model " << FLAGS_model_path;
+        CHECK(!FLAGS_model_path.empty());
         // PaddleAsrModel::InitEngineThreads(FLAGS_num_threads);
         auto model = std::make_shared<PaddleAsrModel>();
         model->Read(FLAGS_model_path);
