@@ -13,4 +13,9 @@ export LD_LIBRARY_PATH=/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-p
 ./build/main
 
 # FLAG_logbuflevel=-1 GLOG_logtostderr=1 GLOG_v=3 ./run.sh 
-#./build/decoder_main --model_path "chunk_wenetspeech_static/export.jit" --unit_path "chunk_wenetspeech_static/unit.txt" --wav_path zh.wav --rescoring_weight 0
+./build/decoder_main \
+	--model_path "chunk_wenetspeech_static/export.jit" \
+	--unit_path "chunk_wenetspeech_static/unit.txt" \
+	--cmvn_path "chunk_wenetspeech_static/mean_std.json" \
+	--wav_path zh.wav \
+	--rescoring_weight 0

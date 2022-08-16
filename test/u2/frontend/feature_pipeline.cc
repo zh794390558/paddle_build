@@ -22,6 +22,7 @@ FeaturePipeline::FeaturePipeline(const FeaturePipelineConfig& config)
     : config_(config), 
     feature_dim_(config.num_bins), 
     fbank_(config.num_bins, config.sample_rate, config.frame_length, config.frame_shift),
+    cmvn_(config.cmvn_path),
     num_frames_(0), 
     input_finished_(false) {}
 
@@ -32,6 +33,7 @@ void FeaturePipeline::AcceptWaveform(const float* pcm, const int& size){
     waves.insert(waves.begin(), remained_wav_.begin(), remained_wav_.end());
     waves.insert(waves.end(), pcm, pcm + size);
     int num_frames = fbank_.Compute(waves, &feats);
+    num_frames = cmvn_.Compute(feats);
     feature_queue_.Push(std::move(feats));
     num_frames_ += num_frames;
 

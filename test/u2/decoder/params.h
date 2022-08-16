@@ -38,6 +38,7 @@ DEFINE_string(onnx_dir, "", "directory where the onnx model is saved");
 // FeaturePipelineConfig flags
 DEFINE_int32(num_bins, 80, "num mel bins for fbank feature");
 DEFINE_int32(sample_rate, 16000, "sample rate for audio");
+DEFINE_string(cmvn_path, "", "cmvn stats path.");
 
 // TLG fst
 DEFINE_string(fst_path, "", "TLG fst path");
@@ -89,7 +90,7 @@ namespace ppspeech {
 
 std::shared_ptr<FeaturePipelineConfig> InitFeaturePipelineConfigFromFlags(){
     auto feature_config = std::make_shared<FeaturePipelineConfig>(
-        FLAGS_num_bins, FLAGS_sample_rate);
+        FLAGS_num_bins, FLAGS_sample_rate, FLAGS_cmvn_path);
     return feature_config;
 }
 

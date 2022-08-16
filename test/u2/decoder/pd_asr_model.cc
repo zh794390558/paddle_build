@@ -143,7 +143,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     std::stringstream path("feat", std::ios_base::app | std::ios_base::out);
     path << offset_;
     std::ofstream feat_fobj(path.str().c_str(), std::ios::out);
-    CHECK(feat_fobj.good());
+    CHECK(feat_fobj.is_open());
     feat_fobj << feats.shape()[0] << " "  << feats.shape()[1] << " " << feats.shape()[2] << "\n";
     for (int i = 0; i < feats.numel(); i++){
         feat_fobj << feats_ptr[i] << " ";
@@ -200,7 +200,8 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     path.str("logits");
     path << offset_ - chunk_out.shape()[1];
     std::ofstream logits_fobj(path.str().c_str(), std::ios::out);
-    logits_fobj << path.str() << "\n";
+    CHECK(logits_fobj.is_open());
+    logits_fobj << chunk_out.shape()[0] << " " <<  chunk_out.shape()[1] << " " << chunk_out.shape()[2]  << "\n";
     const float* chunk_out_ptr = chunk_out.data<float>();
     for (int i = 0; i < chunk_out.numel(); i++){
         logits_fobj << chunk_out_ptr[i] << " ";
@@ -219,7 +220,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     path << offset_ - chunk_out.shape()[1];
   
     std::ofstream logprob_fobj(path.str().c_str(), std::ios::out);
-    logprob_fobj << path.str() << "\n";
+    CHECK(logprob_fobj.is_open());
     logprob_fobj << ctc_log_probs.shape()[0] << " " <<  ctc_log_probs.shape()[1] << " " << ctc_log_probs.shape()[2]  << "\n";
     const float* logprob_ptr = ctc_log_probs.data<float>();
     for (int i = 0; i < ctc_log_probs.numel(); i++){

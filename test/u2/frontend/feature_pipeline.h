@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "frontend/fbank.h"
+#include "frontend/cmvn.h"
 #include "utils/block_queue.h"
 #include "utils/log.h"
 
@@ -30,9 +31,10 @@ struct FeaturePipelineConfig{
     int sample_rate;    // 16k 
     int frame_length;   // points in 25ms
     int frame_shift;    // points in 10ms
+    std::string cmvn_path;      // cmvn path
     
-    FeaturePipelineConfig(int num_bins, int sample_rate) 
-    : num_bins(num_bins), sample_rate(sample_rate) {
+    FeaturePipelineConfig(int num_bins, int sample_rate, const std::string& cmvn_path) 
+    : num_bins(num_bins), sample_rate(sample_rate), cmvn_path(cmvn_path) {
         frame_length = sample_rate / 1000 * 25;
         frame_shift = sample_rate / 1000 * 10;
     }
@@ -95,6 +97,7 @@ private:
     const FeaturePipelineConfig& config_;
     int feature_dim_;
     Fbank fbank_;
+    Cmvn cmvn_;
 
     BlockingQueue<std::vector<float>> feature_queue_;
     int num_frames_;

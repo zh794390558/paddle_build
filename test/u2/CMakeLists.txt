@@ -62,6 +62,7 @@ set(PADDLE_LIB_DIRS /workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-pack
 
 # Include all dependency
 include(openfst)
+include(boost)
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
@@ -70,7 +71,7 @@ include_directories(
 # submodule
 add_subdirectory(utils)
 add_dependencies(utils openfst)
-add_subdirectory(frontend)
+add_subdirectory(frontend boost)
 add_subdirectory(decoder)
 add_dependencies(decoder openfst)
 

@@ -55,7 +55,7 @@ TEST(FeaturePipelineTest, BlockingQueueTest){
 }
 
 TEST(FeaturePipelineTest, PipelineTest){
-    ppspeech::FeaturePipelineConfig config(80, 8000); // 80 fbank, 8k sample rate
+    ppspeech::FeaturePipelineConfig config(80, 8000, "cmvn"); // 80 fbank, 8k sample rate
     ppspeech::FeaturePipeline feature_pipeline(config);
     int audio_len = 8 * 55; // audio len 55ms, 4 frames
     std::vector<float> pcm(audio_len, 0);
