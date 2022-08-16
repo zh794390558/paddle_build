@@ -69,8 +69,10 @@ include_directories(
 
 # submodule
 add_subdirectory(utils)
+add_dependencies(utils openfst)
 add_subdirectory(frontend)
 add_subdirectory(decoder)
+add_dependencies(decoder openfst)
 
 
 # bins
