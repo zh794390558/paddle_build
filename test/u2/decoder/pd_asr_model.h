@@ -15,63 +15,61 @@
 
 #pragma once
 
-#include <vector>
-#include <string>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "decoder/asr_itf.h"
 
 #include "paddle/extension.h"
-#include "paddle/phi/api/all.h"
 #include "paddle/jit/all.h"
+#include "paddle/phi/api/all.h"
 
-
-namespace ppspeech{
+namespace ppspeech {
 
 class PaddleAsrModel : public AsrModelItf {
-public:
-    using PaddleLayer = paddle::jit::Layer;
-    PaddleAsrModel() = default;
-    PaddleAsrModel(const PaddleAsrModel& other);
+ public:
+  using PaddleLayer = paddle::jit::Layer;
+  PaddleAsrModel() = default;
+  PaddleAsrModel(const PaddleAsrModel& other);
 
-    void Read(const std::string& model_path_w_prefix);
+  void Read(const std::string& model_path_w_prefix);
 
-    std::shared_ptr<PaddleLayer> paddle_model() const {return model_;}
+  std::shared_ptr<PaddleLayer> paddle_model() const { return model_; }
 
-    void Reset() override;
+  void Reset() override;
 
-    void AttentionRescoring(const std::vector<std::vector<int>>& hyps,
-                            float reverse_weight,
-                            std::vector<float>* rescoring_score) override;
+  void AttentionRescoring(const std::vector<std::vector<int>>& hyps,
+                          float reverse_weight,
+                          std::vector<float>* rescoring_score) override;
 
-    std::shared_ptr<AsrModelItf> Copy() const override;
+  std::shared_ptr<AsrModelItf> Copy() const override;
 
+  // debug
+  void FeedEncoderOuts(paddle::Tensor& encoder_out);
 
-    // debug
-    void FeedEncoderOuts(paddle::Tensor& encoder_out);
+  // protected:
+ public:
+  void ForwardEncoderChunkImpl(
+      const std::vector<std::vector<float>>& chunk_feats,
+      std::vector<std::vector<float>>* ctc_probs) override;
 
-// protected:
-public:
-    void ForwardEncoderChunkImpl(
-        const std::vector<std::vector<float>>& chunk_feats,
-        std::vector<std::vector<float>>* ctc_probs ) override;
+  float ComputePathScore(const paddle::Tensor& prob,
+                         const std::vector<int>& hyp,
+                         int eos);
 
-    float ComputePathScore(const paddle::Tensor& prob,
-            const std::vector<int>& hyp, int eos);
+ private:
+  phi::Place dev_;
+  std::shared_ptr<PaddleLayer> model_ = nullptr;
+  std::vector<paddle::Tensor> encoder_outs_;
+  // transformer/conformer attention cache
+  paddle::Tensor att_cache_ = paddle::full({0, 0, 0, 0}, 0.0);
+  // conformer-only conv_module cache
+  paddle::Tensor cnn_cache_ = paddle::full({0, 0, 0, 0}, 0.0);
 
-private:
-    phi::Place dev_;
-    std::shared_ptr<PaddleLayer> model_ = nullptr;
-    std::vector<paddle::Tensor> encoder_outs_;
-    // transformer/conformer attention cache
-    paddle::Tensor att_cache_ = paddle::full({0,0,0,0}, 0.0);
-    // conformer-only conv_module cache
-    paddle::Tensor cnn_cache_ = paddle::full({0,0,0,0}, 0.0);
-
-    paddle::jit::Function forward_encoder_chunk_;
-    paddle::jit::Function forward_attention_decoder_;
-    paddle::jit::Function ctc_activation_;
+  paddle::jit::Function forward_encoder_chunk_;
+  paddle::jit::Function forward_attention_decoder_;
+  paddle::jit::Function ctc_activation_;
 };
 
-
-} // namespace ppspeech
+}  // namespace ppspeech

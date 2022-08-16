@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #pragma once
 
 #include <assert.h>
@@ -120,9 +119,7 @@ class WavReader {
   int bits_per_sample() const { return bits_per_sample_; }
   int num_samples() const { return num_samples_; }
 
-  ~WavReader() {
-    delete[] data_;
-  }
+  ~WavReader() { delete[] data_; }
 
   const float* data() const { return data_; }
 
@@ -136,8 +133,11 @@ class WavReader {
 
 class WavWriter {
  public:
-  WavWriter(const float* data, int num_samples, int num_channel,
-            int sample_rate, int bits_per_sample)
+  WavWriter(const float* data,
+            int num_samples,
+            int num_channel,
+            int sample_rate,
+            int bits_per_sample)
       : data_(data),
         num_samples_(num_samples),
         num_channel_(num_channel),

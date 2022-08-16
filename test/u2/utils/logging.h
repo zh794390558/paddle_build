@@ -18,8 +18,9 @@
 #include <iostream>  // NOLINT
 #include "utils/utils.h"
 
-#define CHECK(x) \
-  if (!(x)) LogMessageFatal(__FILE__, __LINE__).stream() << "Check failed: " #x
+#define CHECK(x)                                                     \
+  if (!(x)) LogMessageFatal(__FILE__, __LINE__).stream() << "Check " \
+                                                            "failed: " #x
 #define CHECK_EQ(x, y) CHECK((x) == (y))
 #define CHECK_NE(x, y) CHECK((x) != (y))
 #define CHECK_LE(x, y) CHECK((x) <= (y))
@@ -37,33 +38,25 @@
 #define DCHECK_GT(x, y) CHECK_GT(x, y)
 #else  // NDEBUG
 #define DCHECK(condition) \
-  while (false) \
-    CHECK(condition)
+  while (false) CHECK(condition)
 #define DCHECK_EQ(val1, val2) \
-  while (false) \
-    CHECK_EQ(val1, val2)
+  while (false) CHECK_EQ(val1, val2)
 #define DCHECK_NE(val1, val2) \
-  while (false) \
-    CHECK_NE(val1, val2)
+  while (false) CHECK_NE(val1, val2)
 #define DCHECK_LE(val1, val2) \
-  while (false) \
-    CHECK_LE(val1, val2)
+  while (false) CHECK_LE(val1, val2)
 #define DCHECK_LT(val1, val2) \
-  while (false) \
-    CHECK_LT(val1, val2)
+  while (false) CHECK_LT(val1, val2)
 #define DCHECK_GE(val1, val2) \
-  while (false) \
-    CHECK_GE(val1, val2)
+  while (false) CHECK_GE(val1, val2)
 #define DCHECK_GT(val1, val2) \
-  while (false) \
-    CHECK_GT(val1, val2)
+  while (false) CHECK_GT(val1, val2)
 #define DCHECK_STREQ(str1, str2) \
-  while (false) \
-    CHECK_STREQ(str1, str2)
+  while (false) CHECK_STREQ(str1, str2)
 #endif
 
 #define LOG_INFO LogMessage(__FILE__, __LINE__)
-#define LOG(severity) LOG_ ## severity.stream()
+#define LOG(severity) LOG_##severity.stream()
 #define LG LOG(INFO)
 
 class LogMessage {
@@ -79,8 +72,7 @@ class LogMessage {
 
 class LogMessageFatal : public LogMessage {
  public:
-  LogMessageFatal(const char* file, int line)
-    : LogMessage(file, line) {}
+  LogMessageFatal(const char* file, int line) : LogMessage(file, line) {}
 
   ~LogMessageFatal() {
     std::cerr << "\n";

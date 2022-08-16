@@ -16,22 +16,24 @@
 
 #include <chrono>
 
-namespace ppspeech{
+namespace ppspeech {
 
-class Timer{
-public:
-    Timer() : time_start_(std::chrono::steady_clock::now()){}
+class Timer {
+ public:
+  Timer() : time_start_(std::chrono::steady_clock::now()) {}
 
-    void Reset() { time_start_ = std::chrono::steady_clock::now(); }
+  void Reset() { time_start_ = std::chrono::steady_clock::now(); }
 
-    // return int in milliseconds
-    int Elapsed() const {
-        auto time_now = std::chrono::steady_clock::now();
-        return std::chrono::duration_cast<std::chrono::milliseconds>(time_now - time_start_).count();
-    }
+  // return int in milliseconds
+  int Elapsed() const {
+    auto time_now = std::chrono::steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(time_now -
+                                                                 time_start_)
+        .count();
+  }
 
-private:
-    std::chrono::time_point<std::chrono::steady_clock> time_start_;
+ private:
+  std::chrono::time_point<std::chrono::steady_clock> time_start_;
 };
 
-} // namespace ppspeech
+}  // namespace ppspeech

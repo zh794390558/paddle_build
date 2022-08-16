@@ -41,7 +41,6 @@ std::mutex g_mutex;
 int g_total_waves_dur = 0;
 int g_total_decode_time = 0;
 
-
 void decode(std::pair<std::string, std::string> wav) {
   ppspeech::WavReader wav_reader(wav.second);
   int num_samples = wav_reader.num_samples();
@@ -53,8 +52,8 @@ void decode(std::pair<std::string, std::string> wav) {
   feature_pipeline->SetInputFinished();
   LOG(INFO) << "num frames " << feature_pipeline->num_frames();
 
-  ppspeech::AsrDecoder decoder(feature_pipeline, g_decode_resource,
-                            *g_decode_config);
+  ppspeech::AsrDecoder decoder(
+      feature_pipeline, g_decode_resource, *g_decode_config);
 
   int wave_dur = static_cast<int>(static_cast<float>(num_samples) /
                                   wav_reader.sample_rate() * 1000);
@@ -74,7 +73,8 @@ void decode(std::pair<std::string, std::string> wav) {
       LOG(INFO) << "Partial result: " << decoder.result()[0].sentence;
     }
 
-    if (FLAGS_continuous_decoding && state == ppspeech::DecodeState::kEndpoint) {
+    if (FLAGS_continuous_decoding &&
+        state == ppspeech::DecodeState::kEndpoint) {
       if (decoder.DecodedSomething()) {
         decoder.Rescoring();
         LOG(INFO) << "Final result (continuous decoding): "
@@ -93,7 +93,7 @@ void decode(std::pair<std::string, std::string> wav) {
       auto wait_time =
           decoder.num_frames_in_current_chunk() * frame_shift_in_ms -
           chunk_decode_time;
-          
+
       if (wait_time > 0) {
         LOG(INFO) << "Simulate streaming, waiting for " << wait_time << "ms";
         std::this_thread::sleep_for(
@@ -101,7 +101,7 @@ void decode(std::pair<std::string, std::string> wav) {
       }
     }
   }
-  
+
   if (decoder.DecodedSomething()) {
     final_result.append(decoder.result()[0].sentence);
   }
@@ -121,12 +121,11 @@ void decode(std::pair<std::string, std::string> wav) {
       buffer << "candidate " << r.score << " " << r.sentence << std::endl;
     }
   }
-  
+
   g_total_waves_dur += wave_dur;
   g_total_decode_time += decode_time;
   g_mutex.unlock();
 }
-
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, false);
@@ -142,7 +141,7 @@ int main(int argc, char* argv[]) {
     LOG(FATAL) << "Please provide the wave path or the wav scp.";
   }
 
-  std::vector<std::pair<std::string, std::string>> waves; // utt, wav
+  std::vector<std::pair<std::string, std::string>> waves;  // utt, wav
   if (!FLAGS_wav_path.empty()) {
     waves.emplace_back(make_pair("test", FLAGS_wav_path));
   } else {

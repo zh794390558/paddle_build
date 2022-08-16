@@ -19,15 +19,15 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-TEST(UtilsTest, TopKTest){
-    using ::testing::ElementsAre;
-    using ::testing::FloatNear;
-    using ::testing::Pointwise;
+TEST(UtilsTest, TopKTest) {
+  using ::testing::ElementsAre;
+  using ::testing::FloatNear;
+  using ::testing::Pointwise;
 
-    std::vector<float> data = {1,3,5,7,9, 2,4,6,8, 10};
-    std::vector<float> values;
-    std::vector<int32_t> indices;
-    ppspeech::TopK(data, 3, &values, &indices);
-    EXPECT_THAT(values, Pointwise(FloatNear(1e-8), {10, 9, 8}));
-    EXPECT_THAT(indices, ElementsAre(9, 4, 8));
+  std::vector<float> data = {1, 3, 5, 7, 9, 2, 4, 6, 8, 10};
+  std::vector<float> values;
+  std::vector<int32_t> indices;
+  ppspeech::TopK(data, 3, &values, &indices);
+  EXPECT_THAT(values, Pointwise(FloatNear(1e-8), {10, 9, 8}));
+  EXPECT_THAT(indices, ElementsAre(9, 4, 8));
 }

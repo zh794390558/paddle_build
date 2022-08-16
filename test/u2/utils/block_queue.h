@@ -25,101 +25,101 @@
 
 namespace ppspeech {
 
-template<typename T>
+template <typename T>
 class BlockingQueue {
-public:
-    explicit BlockingQueue(size_t capacity = std::numeric_limits<int>::max()) : capacity_(capacity) {}
+ public:
+  explicit BlockingQueue(size_t capacity = std::numeric_limits<int>::max())
+      : capacity_(capacity) {}
 
-    void Push(const T& value) {
-        {
-            std::unique_lock<std::mutex> lock(mutex_);
-            while(queue_.size() >= capacity_){
-                // queue full, so wait not full
-                not_full_condition_.wait(lock);
-            }
-            queue_.push(value);
-        }
+  void Push(const T& value) {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      while (queue_.size() >= capacity_) {
+        // queue full, so wait not full
+        not_full_condition_.wait(lock);
+      }
+      queue_.push(value);
+    }
+    not_empty_condition_.notify_one();
+  }
+
+  void Push(T&& value) {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      while (queue_.size() >= capacity_) {
+        not_full_condition_.wait(lock);
+      }
+      queue_.push(std::move(value));
+    }
+    not_empty_condition_.notify_one();
+  }
+
+  void Push(std::vector<T>&& values) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    for (auto& value : values) {
+      while (queue_.size() >= capacity_) {
         not_empty_condition_.notify_one();
+        not_full_condition_.wait(lock);
+      }
+      queue_.push(std::move(value));
+    }
+    not_empty_condition_.notify_one();
+  }
+
+  T Pop() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (queue_.empty()) {
+      not_empty_condition_.wait(lock);
     }
 
-    void Push(T&& value) {
-        {
-            std::unique_lock<std::mutex> lock(mutex_);
-            while (queue_.size() >= capacity_) {
-                not_full_condition_.wait(lock);
-            }
-            queue_.push(std::move(value));
-        }
-        not_empty_condition_.notify_one();
-    }
+    T t(std::move(queue_.front()));
+    queue_.pop();
+    not_full_condition_.notify_one();
+    return t;
+  }
 
-    void Push(std::vector<T>&& values) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        for (auto& value : values){
-            while(queue_.size() >= capacity_){
-                not_empty_condition_.notify_one();
-                not_full_condition_.wait(lock);
-            }
-            queue_.push(std::move(value));
-        }
-        not_empty_condition_.notify_one();
-    }
-
-    T Pop() {
-        std::unique_lock<std::mutex> lock(mutex_);
-        while (queue_.empty()) {
-            not_empty_condition_.wait(lock);
-        }
-
-        T t(std::move(queue_.front()));
-        queue_.pop();
+  // num can be greater than capacity,but it needs to be used with care
+  std::vector<T> Pop(size_t num) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    std::vector<T> block_data;
+    while (block_data.size() < num) {
+      while (queue_.empty()) {
         not_full_condition_.notify_one();
-        return t;
+        not_empty_condition_.wait(lock);
+      }
+      block_data.push_back(std::move(queue_.front()));
+      queue_.pop();
     }
+    not_full_condition_.notify_one();
+    return block_data;
+  }
 
-    // num can be greater than capacity,but it needs to be used with care
-    std::vector<T> Pop(size_t num) {
-        std::unique_lock<std::mutex> lock(mutex_);
-        std::vector<T> block_data;
-        while(block_data.size() < num){
-            while(queue_.empty()){
-                not_full_condition_.notify_one();
-                not_empty_condition_.wait(lock);
-            }
-            block_data.push_back(std::move(queue_.front()));
-            queue_.pop();
-        }
-        not_full_condition_.notify_one();
-        return block_data;
+  bool Empty() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.empty();
+  }
+
+  size_t Size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return queue_.size();
+  }
+
+  void Clear() {
+    while (!Empty()) {
+      Pop();
     }
+  }
 
-    bool Empty() const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return queue_.empty();
-    }
+ private:
+  size_t capacity_;
+  std::queue<T> queue_;
 
-    size_t Size() const {
-        std::lock_guard<std::mutex> lock(mutex_);
-        return queue_.size();
-    }
+  mutable std::mutex mutex_;
+  std::condition_variable not_full_condition_;
+  std::condition_variable not_empty_condition_;
 
-    void Clear() {
-        while (!Empty()) {
-            Pop();
-        }
-    }
-
-
-private:
-    size_t capacity_;
-    std::queue<T> queue_;
-
-    mutable std::mutex mutex_;
-    std::condition_variable not_full_condition_;
-    std::condition_variable not_empty_condition_;
-
-public:
-    DISALLOW_COPY_AND_ASSIGN(BlockingQueue);
+ public:
+  DISALLOW_COPY_AND_ASSIGN(BlockingQueue);
 };
 
-} // namespace ppspeech
+}  // namespace ppspeech

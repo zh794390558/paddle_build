@@ -160,10 +160,14 @@ class Fbank {
       Povey(&data);
       // copy data to fft_real
       memset(fft_img.data(), 0, sizeof(float) * fft_points_);
-      memset(fft_real.data() + frame_length_, 0,
+      memset(fft_real.data() + frame_length_,
+             0,
              sizeof(float) * (fft_points_ - frame_length_));
       memcpy(fft_real.data(), data.data(), sizeof(float) * frame_length_);
-      fft(bitrev_.data(), sintbl_.data(), fft_real.data(), fft_img.data(),
+      fft(bitrev_.data(),
+          sintbl_.data(),
+          fft_real.data(),
+          fft_img.data(),
           fft_points_);
       // power
       for (int j = 0; j < fft_points_ / 2; ++j) {
@@ -211,4 +215,4 @@ class Fbank {
   std::vector<float> sintbl_;
 };
 
-}  // namespace wenet
+}  // namespace ppspeech

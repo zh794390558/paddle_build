@@ -23,7 +23,8 @@ struct CtcEndpointRule {
   int min_trailing_silence;
   int min_utterance_length;
 
-  CtcEndpointRule(bool must_decoded_sth = true, int min_trailing_silence = 1000,
+  CtcEndpointRule(bool must_decoded_sth = true,
+                  int min_trailing_silence = 1000,
                   int min_utterance_length = 0)
       : must_decoded_sth(must_decoded_sth),
         min_trailing_silence(min_trailing_silence),

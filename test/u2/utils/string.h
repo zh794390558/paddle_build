@@ -24,14 +24,17 @@
 
 #include "fst/symbol-table.h"
 
-namespace ppspeech{
+namespace ppspeech {
 
 const char WHITESPACE[] = " \n\t\r\f\v";
 
 // split the string with space or tab
 void SplitString(const std::string& str, std::vector<std::string>* strs);
 
-void SplitStringToVector(const std::string& full, const char* delim, bool omit_empty_strings, std::vector<std::string>* out);
+void SplitStringToVector(const std::string& full,
+                         const char* delim,
+                         bool omit_empty_strings,
+                         std::vector<std::string>* out);
 
 // NOTE(Xingchen Song): we add this function to make it possible to
 // support multilingual recipe in the future, in which characters of
@@ -41,7 +44,6 @@ void SplitStringToVector(const std::string& full, const char* delim, bool omit_e
 void SplitUTF8StringToChars(const std::string& str,
                             std::vector<std::string>* chars);
 
-
 int UTF8StringLength(const std::string& str);
 
 // Check whether the UTF-8 char is alphabet or '.
@@ -49,7 +51,6 @@ bool CheckEnglishChar(const std::string& ch);
 
 // Check whether the UTF-8 word is only contains alphabet or '.
 bool CheckEnglishWord(const std::string& word);
-
 
 std::string JoinString(const std::string& c,
                        const std::vector<std::string>& strs);
@@ -61,7 +62,6 @@ bool SplitUTF8StringToWords(
     const std::shared_ptr<fst::SymbolTable>& symbol_table,
     std::vector<std::string>* words);
 
-
 // Replace ▁ with space, then remove head, tail and consecutive space.
 std::string ProcessBlank(const std::string& str, bool lowercase);
 
@@ -71,11 +71,10 @@ std::string Rtrim(const std::string& str);
 
 std::string Trim(const std::string& str);
 
-
 std::string JoinPath(const std::string& left, const std::string& right);
 
 #ifdef _MSC_VER
 std::wstring ToWString(const std::string& str);
 #endif
 
-} // namespace ppspeech
+}  // namespace ppspeech

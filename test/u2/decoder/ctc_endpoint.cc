@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "decoder/ctc_endpoint.h"
 
 #include <math.h>
@@ -34,8 +33,10 @@ void CtcEndpoint::Reset() {
 }
 
 static bool RuleActivated(const CtcEndpointRule& rule,
-                          const std::string& rule_name, bool decoded_sth,
-                          int trailing_silence, int utterance_length) {
+                          const std::string& rule_name,
+                          bool decoded_sth,
+                          int trailing_silence,
+                          int utterance_length) {
   bool ans = (decoded_sth || !rule.must_decoded_sth) &&
              trailing_silence >= rule.min_trailing_silence &&
              utterance_length >= rule.min_utterance_length;
@@ -65,13 +66,22 @@ bool CtcEndpoint::IsEndpoint(
   CHECK_GT(frame_shift_in_ms_, 0);
   int utterance_length = num_frames_decoded_ * frame_shift_in_ms_;
   int trailing_silence = num_frames_trailing_blank_ * frame_shift_in_ms_;
-  if (RuleActivated(config_.rule1, "rule1", decoded_something, trailing_silence,
+  if (RuleActivated(config_.rule1,
+                    "rule1",
+                    decoded_something,
+                    trailing_silence,
                     utterance_length))
     return true;
-  if (RuleActivated(config_.rule2, "rule2", decoded_something, trailing_silence,
+  if (RuleActivated(config_.rule2,
+                    "rule2",
+                    decoded_something,
+                    trailing_silence,
                     utterance_length))
     return true;
-  if (RuleActivated(config_.rule3, "rule3", decoded_something, trailing_silence,
+  if (RuleActivated(config_.rule3,
+                    "rule3",
+                    decoded_something,
+                    trailing_silence,
                     utterance_length))
     return true;
   return false;

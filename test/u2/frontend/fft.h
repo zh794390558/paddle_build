@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #ifndef M_PI
 #define M_PI 3.1415926535897932384626433832795
 #endif

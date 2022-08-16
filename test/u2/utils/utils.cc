@@ -21,57 +21,64 @@
 #include <utility>
 #include <vector>
 
-namespace ppspeech{
+namespace ppspeech {
 
-float LogSumExp(float x, float y){
-    if (x <= -kFloatMax) return y;
-    if (y <= -kFloatMax) return x;
-    float max = std::max(x, y);
-    return max + std::log(std::exp(x - max) + std::exp(y - max));
+float LogSumExp(float x, float y) {
+  if (x <= -kFloatMax) return y;
+  if (y <= -kFloatMax) return x;
+  float max = std::max(x, y);
+  return max + std::log(std::exp(x - max) + std::exp(y - max));
 }
 
 template <typename T>
-struct ValueComp{
-    bool operator()(const std::pair<T, int32_t>&lhs, const std::pair<T, int32_t>& rhs) const{
-        return lhs.first > rhs.first || (lhs.first == rhs.first && lhs.second < rhs.second);
-    }
+struct ValueComp {
+  bool operator()(const std::pair<T, int32_t>& lhs,
+                  const std::pair<T, int32_t>& rhs) const {
+    return lhs.first > rhs.first ||
+           (lhs.first == rhs.first && lhs.second < rhs.second);
+  }
 };
 
-template<typename T>
-void TopK(const std::vector<T>& data, int32_t k, std::vector<T>* values, std::vector<int>* indices){
-    // k laggest T
-    std::vector<std::pair<T, int32_t>> heap_data; // (val, idx), smallest heap
-    int n = data.size();
+template <typename T>
+void TopK(const std::vector<T>& data,
+          int32_t k,
+          std::vector<T>* values,
+          std::vector<int>* indices) {
+  // k laggest T
+  std::vector<std::pair<T, int32_t>> heap_data;  // (val, idx), smallest heap
+  int n = data.size();
 
-    for (int32_t i = 0; i < k && i < n; ++i){
-        heap_data.emplace_back(data[i], i);
+  for (int32_t i = 0; i < k && i < n; ++i) {
+    heap_data.emplace_back(data[i], i);
+  }
+
+  std::priority_queue<std::pair<T, int32_t>,
+                      std::vector<std::pair<T, int32_t>>,
+                      ValueComp<T>>
+      pq(ValueComp<T>(), std::move(heap_data));
+
+  for (int32_t i = k; i < n; ++i) {
+    if (pq.top().first < data[i]) {
+      pq.pop();
+      pq.emplace(data[i], i);
     }
+  }
 
-    std::priority_queue<std::pair<T, int32_t>, std::vector<std::pair<T, int32_t>>, ValueComp<T>> pq(ValueComp<T>(), std::move(heap_data));
-
-    for (int32_t i = k; i < n; ++i){
-        if (pq.top().first < data[i]){
-            pq.pop();
-            pq.emplace(data[i], i);
-        }
-    }
-
-    values->resize(std::min(k, n));
-    indices->resize(std::min(k, n));
-    int32_t cur = values->size() - 1;
-    while(!pq.empty()){
-        const auto& item = pq.top();
-        (*values)[cur] = item.first;
-        (*indices)[cur] = item.second;
-        pq.pop();
-        cur -= 1;
-    }
+  values->resize(std::min(k, n));
+  indices->resize(std::min(k, n));
+  int32_t cur = values->size() - 1;
+  while (!pq.empty()) {
+    const auto& item = pq.top();
+    (*values)[cur] = item.first;
+    (*indices)[cur] = item.second;
+    pq.pop();
+    cur -= 1;
+  }
 }
 
-template void TopK<float>(
-    const std::vector<float>& data, int32_t k, std::vector<float>* values, std::vector<int>* indices
-);
+template void TopK<float>(const std::vector<float>& data,
+                          int32_t k,
+                          std::vector<float>* values,
+                          std::vector<int>* indices);
 
-
-
-} // namespace
+}  // namespace ppspeech
