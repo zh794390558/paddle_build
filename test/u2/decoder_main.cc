@@ -107,7 +107,7 @@ void decode(std::pair<std::string, std::string> wav) {
   if (decoder.DecodedSomething()) {
     final_result.append(decoder.result()[0].sentence);
   }
-  LOG(INFO) << wav.first << " Final result: " << final_result << std::endl;
+  LOG(INFO) << wav.first << ": Final result: " << final_result << std::endl;
   LOG(INFO) << "Decoded " << wave_dur << "ms audio taken " << decode_time
             << "ms.";
 
@@ -123,6 +123,7 @@ void decode(std::pair<std::string, std::string> wav) {
       buffer << "candidate " << r.score << " " << r.sentence << std::endl;
     }
   }
+  
   g_total_waves_dur += wave_dur;
   g_total_decode_time += decode_time;
   g_mutex.unlock();
@@ -133,6 +134,7 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, false);
   google::InitGoogleLogging(argv[0]);
   google::InstallFailureSignalHandler();
+  FLAGS_logtostderr = 1;
 
   g_decode_config = ppspeech::InitDecodeOptionsFromFlags();
   g_feature_config = ppspeech::InitFeaturePipelineConfigFromFlags();
@@ -160,13 +162,13 @@ int main(int argc, char* argv[]) {
     g_result.open(FLAGS_result, std::ios::out);
   }
 
-  // {
-  //   ThreadPool pool(FLAGS_thread_num);
-  //   for (auto& wav : waves) {
-  //     pool.enqueue(decode, wav);
-  //   }
-  // }
-  decode(waves[0]);
+  {
+    ThreadPool pool(FLAGS_thread_num);
+    for (auto& wav : waves) {
+      pool.enqueue(decode, wav);
+    }
+  }
+  // decode(waves[0]);
 
   LOG(INFO) << "Total: decoded " << g_total_waves_dur << "ms audio taken "
             << g_total_decode_time << "ms.";

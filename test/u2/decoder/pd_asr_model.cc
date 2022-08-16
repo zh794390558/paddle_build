@@ -21,6 +21,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 
 #include "utils/log.h"
 
@@ -65,6 +67,10 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix){
 
 // shallow copy
 PaddleAsrModel::PaddleAsrModel(const PaddleAsrModel& other){
+  forward_encoder_chunk_ = other.forward_encoder_chunk_;
+  forward_attention_decoder_ = other.forward_attention_decoder_;
+  ctc_activation_ = other.ctc_activation_;
+
   // copy meta
   right_context_ = other.right_context_;
   subsampling_rate_ = other.subsampling_rate_;
@@ -108,8 +114,8 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int num_frames = cached_feats_.size() + chunk_feats.size();
     const int feature_dim = chunk_feats[0].size();
 
-    VLOG(3)<< "num_frames: " << num_frames;
-    VLOG(3)<< "feature_dim: " << feature_dim ;
+    VLOG(1)<< "num_frames: " << num_frames;
+    VLOG(1)<< "feature_dim: " << feature_dim ;
 
     // feats (B=1,T,D)
     paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
@@ -130,18 +136,23 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
     }
 
-    // paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 1.0f, paddle::DataType::FLOAT32);
-    VLOG(3) << "feats shape: " << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2]; 
 
-#ifdef DEBUG
+    VLOG(1) << "feats shape: " << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2]; 
+
+
+    std::stringstream path("feat", std::ios_base::app | std::ios_base::out);
+    path << offset_;
+    std::ofstream feat_fobj(path.str().c_str(), std::ios::out);
+    CHECK(feat_fobj.good());
+    feat_fobj << feats.shape()[0] << " "  << feats.shape()[1] << " " << feats.shape()[2] << "\n";
     for (int i = 0; i < feats.numel(); i++){
-        std::cout << feats_ptr[i] << " ";
+        feat_fobj << feats_ptr[i] << " ";
         if ( (i+1) % feature_dim == 0){
-            std::cout << std::endl;
+            feat_fobj<< "\n";
         }
     }
-    std::cout << std::endl;
-#endif
+    feat_fobj << "\n";
+
 
 
     // Endocer chunk forward
@@ -154,14 +165,14 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int required_cache_size = num_left_chunks_ * chunk_size_; // -1 * 16
     // must be scalar, but paddle do not have scalar.
     paddle::Tensor offset = paddle::full({1}, offset_, paddle::DataType::INT32);
-    // VLOG(3) << "offset shape: " << offset.shape()[0] ; 
-    // VLOG(3) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
-    // VLOG(3) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    // VLOG(1) << "offset shape: " << offset.shape()[0] ; 
+    // VLOG(1) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    // VLOG(1) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
     // freeze `required_cache_size` in graph, so not specific it in function call.
     std::vector<paddle::Tensor> inputs = {feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
-    VLOG(3) << "inputs size: " << inputs.size(); 
+    VLOG(1) << "inputs size: " << inputs.size(); 
     std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
-    VLOG(3) << "outputs size: " << outputs.size(); 
+    VLOG(1) << "outputs size: " << outputs.size(); 
     CHECK(outputs.size() == 3);
 
 #ifdef USE_GPU
@@ -184,8 +195,42 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     inputs.clear();
     outputs.clear();
     inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
+
+
+    path.str("logits");
+    path << offset_ - chunk_out.shape()[1];
+    std::ofstream logits_fobj(path.str().c_str(), std::ios::out);
+    logits_fobj << path.str() << "\n";
+    const float* chunk_out_ptr = chunk_out.data<float>();
+    for (int i = 0; i < chunk_out.numel(); i++){
+        logits_fobj << chunk_out_ptr[i] << " ";
+        if ( (i+1) % chunk_out.shape()[2] == 0){
+            logits_fobj<< "\n";
+        }
+    }
+    logits_fobj << "\n";
+
+
     outputs = ctc_activation_(inputs);
     paddle::Tensor ctc_log_probs = outputs[0];
+
+
+    path.str("logprob");
+    path << offset_ - chunk_out.shape()[1];
+  
+    std::ofstream logprob_fobj(path.str().c_str(), std::ios::out);
+    logprob_fobj << path.str() << "\n";
+    logprob_fobj << ctc_log_probs.shape()[0] << " " <<  ctc_log_probs.shape()[1] << " " << ctc_log_probs.shape()[2]  << "\n";
+    const float* logprob_ptr = ctc_log_probs.data<float>();
+    for (int i = 0; i < ctc_log_probs.numel(); i++){
+        logprob_fobj << logprob_ptr[i] << " ";
+        if ( (i+1) % ctc_log_probs.shape()[2] == 0){
+            logprob_fobj<< "\n";
+        }
+    }
+    logprob_fobj << "\n";
+
+
     // collects encoder outs.
     encoder_outs_.push_back(std::move(chunk_out));
 #endif

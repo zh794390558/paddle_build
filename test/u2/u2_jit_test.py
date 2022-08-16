@@ -27,7 +27,7 @@ offset = paddle.to_tensor([0], dtype='int32')
 att_cache = paddle.zeros([0, 0, 0, 0], dtype='float32')
 cnn_cache = paddle.zeros([0, 0, 0, 0], dtype='float32')
 
-func = getattr(layer, 'jit.forward_encoder_chunk')
+func = getattr(layer, 'forward_encoder_chunk')
 # xs, att_cache, cnn_cache = layer.forward_encoder_chunk(xs1, offset, att_cache, cnn_cache)
 xs, att_cache, cnn_cache = func(xs1, offset, att_cache, cnn_cache)
 
@@ -36,11 +36,12 @@ print('att cache', att_cache.shape, att_cache.numpy())
 print('cnn cache', cnn_cache.shape, cnn_cache.numpy())
 
 
-func = getattr(layer, 'jit.ctc_activation')
+func = getattr(layer, 'ctc_activation')
 ys = func(xs)
 print('log_probs', ys[0].numpy())
 print('log_probs shape', ys[0].shape)
 
+#exit(0)
 
 # print("###################")
 # # ######################### infer_model.forward_attention_decoder ########################
@@ -50,7 +51,7 @@ print('log_probs shape', ys[0].shape)
 # hyp_lens = paddle.full(shape=[B], fill_value=8, dtype='int64') # hyps lens
 # encoder_outs = paddle.full(shape=[1, 20, 512], fill_value=1, dtype='float32') # encoder outs
 
-# func = getattr(layer, 'jit.forward_attention_decoder')
+# func = getattr(layer, 'forward_attention_decoder')
 # out2 = func(hyps, hyp_lens, encoder_outs)
 # print("decoder logits", out2[0])
 # print("decoder logits", out2[0].shape)
@@ -70,7 +71,7 @@ hyp_lens = paddle.full(shape=[B], fill_value=U+1, dtype='int64') # hyps lens
 
 encoder_outs = paddle.full(shape=[1, 20, 512], fill_value=1, dtype='float32') # encoder outs
 
-func = getattr(layer, 'jit.forward_attention_decoder')
+func = getattr(layer, 'forward_attention_decoder')
 out2 = func(hyps, hyp_lens, encoder_outs)
 print("decoder logits", out2[0].numpy())
 print("decoder logits", out2[0].shape)

@@ -84,7 +84,7 @@ void AsrDecoder::Rescoring(){
     // Do attention Rescoring
     Timer timer;
     AttentionRescoring();
-    VLOG(2) << "Rescoring cost latency: " << timer.Elapsed() << "ms.";
+    VLOG(1) << "Rescoring cost latency: " << timer.Elapsed() << "ms.";
 }
 
 
@@ -107,18 +107,19 @@ DecodeState AsrDecoder::AdvanceDecoding(bool block){
     }
 
     num_frames_ += chunk_feats.size();
-    VLOG(2) << "Requied " << num_requied_frames << " get " << chunk_feats.size();
+    VLOG(1) << "Requied " << num_requied_frames << " get " << chunk_feats.size();
 
     Timer timer;
     std::vector<std::vector<float>> ctc_log_probs;
     model_->ForwardEncoderChunk(chunk_feats, &ctc_log_probs);
     int forward_time = timer.Elapsed();
-    VLOG(3) << "ForwardEncoderChunk()";
+    VLOG(1) << "ForwardEncoderChunk()";
+
     
     timer.Reset();
     searcher_->Search(ctc_log_probs);
     int search_time = timer.Elapsed();
-    VLOG(3) << "forward takes " << forward_time << " ms, search takes " << search_time << " ms";
+    VLOG(1) << "forward takes " << forward_time << " ms, search takes " << search_time << " ms";
     UpdateResult(false);
 
     if (state != DecodeState::kEndFeats){
@@ -223,7 +224,7 @@ void AsrDecoder::AttentionRescoring(){
     Timer timer;
     std::vector<float> rescoring_score;
     model_->AttentionRescoring(hypotheses, opts_.reverse_weight, &rescoring_score);
-    VLOG(3) << "Attention Rescoring takes " << timer.Elapsed();
+    VLOG(1) << "Attention Rescoring takes " << timer.Elapsed();
 
     // combine ctc score and rescoring score
     for (size_t i = 0; i < num_hyps; i++){
