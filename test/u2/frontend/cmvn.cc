@@ -12,6 +12,7 @@ namespace ppspeech {
 Cmvn::Cmvn(const std::string& cmvn_path) {
     std::ifstream in(cmvn_path);
     CHECK(in.is_open());
+    VLOG(1) << "Load cmvn: " << cmvn_path;
     std::string json_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     boost::json::value value = boost::json::parse(json_str);
 
@@ -21,18 +22,18 @@ Cmvn::Cmvn(const std::string& cmvn_path) {
 
     for (auto obj : value.as_object()){
       if (obj.key() == "mean_stat"){
-        LOG(INFO) << "mean_stat: " << obj.value();
+        VLOG(2) << "mean_stat: " << obj.value();
       }
       if (obj.key() == "var_stat"){
-        LOG(INFO) << "var_stat: " << obj.value();
+        VLOG(2) << "var_stat: " << obj.value();
       }
       if (obj.key() == "frame_num"){
-        LOG(INFO) << "frame_num: " << obj.value();
+        VLOG(2) << "frame_num: " << obj.value();
       }
     }
 
     frame_num_ = value.at("frame_num").as_int64();
-    LOG(INFO) << "nframe: " << frame_num_;
+    VLOG(2) << "nframe: " << frame_num_;
 
     boost::json::array mean_stat = value.at("mean_stat").as_array();
     for(auto it = mean_stat.begin(); it != mean_stat.end(); it++){

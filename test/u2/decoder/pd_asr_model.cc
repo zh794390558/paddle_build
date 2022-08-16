@@ -114,8 +114,8 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int num_frames = cached_feats_.size() + chunk_feats.size();
     const int feature_dim = chunk_feats[0].size();
 
-    VLOG(1)<< "num_frames: " << num_frames;
-    VLOG(1)<< "feature_dim: " << feature_dim ;
+    VLOG(3)<< "num_frames: " << num_frames;
+    VLOG(3)<< "feature_dim: " << feature_dim ;
 
     // feats (B=1,T,D)
     paddle::Tensor feats = paddle::full({1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
@@ -137,9 +137,9 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     }
 
 
-    VLOG(1) << "feats shape: " << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2]; 
+    VLOG(3) << "feats shape: " << feats.shape()[0] << ", "  << feats.shape()[1] << ", " << feats.shape()[2]; 
 
-
+#ifdef DEUBG
     std::stringstream path("feat", std::ios_base::app | std::ios_base::out);
     path << offset_;
     std::ofstream feat_fobj(path.str().c_str(), std::ios::out);
@@ -152,7 +152,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         }
     }
     feat_fobj << "\n";
-
+#endif
 
 
     // Endocer chunk forward
@@ -165,14 +165,14 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     int required_cache_size = num_left_chunks_ * chunk_size_; // -1 * 16
     // must be scalar, but paddle do not have scalar.
     paddle::Tensor offset = paddle::full({1}, offset_, paddle::DataType::INT32);
-    // VLOG(1) << "offset shape: " << offset.shape()[0] ; 
-    // VLOG(1) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
-    // VLOG(1) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    // VLOG(3) << "offset shape: " << offset.shape()[0] ; 
+    // VLOG(3) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  << att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
+    // VLOG(3) << "cnn_cache_ shape: " << cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " << cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; 
     // freeze `required_cache_size` in graph, so not specific it in function call.
     std::vector<paddle::Tensor> inputs = {feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
-    VLOG(1) << "inputs size: " << inputs.size(); 
+    VLOG(3) << "inputs size: " << inputs.size(); 
     std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
-    VLOG(1) << "outputs size: " << outputs.size(); 
+    VLOG(3) << "outputs size: " << outputs.size(); 
     CHECK(outputs.size() == 3);
 
 #ifdef USE_GPU
@@ -196,7 +196,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     outputs.clear();
     inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
 
-
+#ifdef DEUBG
     path.str("logits");
     path << offset_ - chunk_out.shape()[1];
     std::ofstream logits_fobj(path.str().c_str(), std::ios::out);
@@ -210,12 +210,12 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         }
     }
     logits_fobj << "\n";
-
+#endif // end DEUBG
 
     outputs = ctc_activation_(inputs);
     paddle::Tensor ctc_log_probs = outputs[0];
 
-
+#ifdef DEUBG
     path.str("logprob");
     path << offset_ - chunk_out.shape()[1];
   
@@ -230,11 +230,11 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
         }
     }
     logprob_fobj << "\n";
-
+#endif // end DEUBG
 
     // collects encoder outs.
     encoder_outs_.push_back(std::move(chunk_out));
-#endif
+#endif // end USE_GPU
 
     // Copy to output, (B=1,T,D)
     std::vector<int64_t> ctc_log_probs_shape = ctc_log_probs.shape();

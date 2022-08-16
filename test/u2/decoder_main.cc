@@ -63,11 +63,9 @@ void decode(std::pair<std::string, std::string> wav) {
   while (true) {
     ppspeech::Timer timer;
     ppspeech::DecodeState state = decoder.Decode();
-    LOG(INFO) << "decoder.Decode()";
 
     if (state == ppspeech::DecodeState::kEndFeats) {
       decoder.Rescoring();
-      LOG(INFO) << "decoder.Rescoring()";
     }
 
     int chunk_decode_time = timer.Elapsed();

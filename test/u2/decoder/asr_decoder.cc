@@ -39,7 +39,7 @@ AsrDecoder::AsrDecoder(
     ctc_endpointer_(new CtcEndpoint(opts.ctc_endpoint_config)) {
         if (opts_.rescoring_weight > 0){
             // Check if model has a right to left decoder
-            CHECK(model_->is_bidecoder());
+            // CHECK(model_->is_bidecoder());
         }
         if (nullptr == fst_){
             // ctc prefix beam search
@@ -113,8 +113,6 @@ DecodeState AsrDecoder::AdvanceDecoding(bool block){
     std::vector<std::vector<float>> ctc_log_probs;
     model_->ForwardEncoderChunk(chunk_feats, &ctc_log_probs);
     int forward_time = timer.Elapsed();
-    VLOG(1) << "ForwardEncoderChunk()";
-
     
     timer.Reset();
     searcher_->Search(ctc_log_probs);
