@@ -1,3 +1,5 @@
 build
 chunk_wenetspeech_static/
 chunk_wenetspeech_static.tar.gz
+*bak*
+fc_base

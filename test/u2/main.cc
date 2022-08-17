@@ -1,40 +1,44 @@
-#include "paddle/extension.h"
-#include "paddle/phi/api/all.h"
-#include "paddle/jit/all.h"
+#include <algorithm>
+#include "decoder/pd_asr_model.h"
 
-int main (){
+int main(void) {
+  ppspeech::PaddleAsrModel model;
+  model.Read("chunk_wenetspeech_static/export.jit");
 
-    paddle::jit::utils::InitKernelSignatureMap();
+  std::vector<std::vector<float>> chunk_feats;  // [T,D=80]
+  std::vector<std::vector<float>> out_prob;
 
-    // tensor op
-    std::cout << "Run Start" << std::endl;
-    auto d = paddle::Tensor("test");
-    auto a = paddle::full({3, 4}, 2.0);
-    auto b = paddle::full({4, 5}, 3.0);
-    auto out = paddle::matmul(a, b);
-    std::cout << "Run End" << std::endl;
+  int T = 7;
+  int D = 80;
+  chunk_feats.resize(T);
+  for (int i = 0; i < T; ++i) {
+    chunk_feats[i].resize(D);
+    std::fill(chunk_feats[i].begin(), chunk_feats[i].end(), 0.1);
+  }
 
-    // load model
-    auto layer = paddle::jit::Load("chunk_wenetspeech_static/export.jit", phi::CPUPlace());
+  model.ForwardEncoderChunkImpl(chunk_feats, &out_prob);
+  std::cout << "T: " << out_prob.size() << std::endl;
+  std::cout << "D: " << out_prob[0].size() << std::endl;
 
+  for (int i = 0; i < out_prob[0].size(); i++) {
+    std::cout << out_prob[0][i] << " ";
+    if ((i + 1) % 10 == 0) {
+      std::cout << std::endl;
+    }
+  }
+  std::cout << std::endl;
 
-    auto hyps = paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());
-    auto hyps_lens = paddle::full({10}, 8, paddle::DataType::INT64, phi::CPUPlace());
-    auto encoder_out = paddle::full({1, 20, 512}, 1, paddle::DataType::FLOAT32, phi::CPUPlace());
+  std::cout << "==============================" << std::endl;
 
-    std::vector<paddle::experimental::Tensor> inputs{hyps, hyps_lens, encoder_out};
+  std::vector<float> scores;
+  std::vector<std::vector<int>> hyps(1, std::vector<int>(8, 10));
+  paddle::Tensor encoder_out =
+      paddle::full({20, 512}, 1.0, paddle::DataType::FLOAT32);
+  model.FeedEncoderOuts(encoder_out);
 
-    std::vector<paddle::experimental::Tensor>  outputs = (*layer.Function("jit.forward_attention_decoder"))(inputs);
-    std::cout << "forward_attention_decoder has " << outputs.size() << " outputs." << std::endl;
-    std::cout << "output 0 has " << outputs[0].size() << " elements." <<  std::endl;
-    auto data = outputs[0].data<float>();
+  model.AttentionRescoring(hyps, 0, &scores);
+  std::cout << "att rescore: " << scores.size() << " " << scores[0]
+            << std::endl;
 
-    std::cout << "dtat[0]: " << data[0] << std::endl;
-
-
-    // get attribute
-    std::cout << "eos_symbol: " << layer.Attribute<int>("eos_symbol") << std::endl;
-    std::cout << "sos_symbol: " << layer.Attribute<int>("sos_symbol") << std::endl;
-    std::cout << "right_context: " << layer.Attribute<int>("right_context") << std::endl;
-    std::cout << "subsampling_rate: " << layer.Attribute<int>("subsampling_rate") << std::endl;
+  return 0;
 }
