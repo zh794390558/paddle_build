@@ -65,8 +65,12 @@ include(openfst)
 include(boost)
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
+  /workspace/Paddle
+  /workspace/Paddle/build_cuda
+  /workspace/Paddle/build_cuda/third_party/protobuf/src/extern_protobuf/src/
+  /workspace/Paddle/build_cuda/third_party/eigen3/src/extern_eigen3
+  /workspace/Paddle/build_cuda/third_party/dlpack/src/extern_dlpack/include/
 )
-
 
 # submodule
 add_subdirectory(utils)
@@ -88,7 +92,7 @@ set(name main_test)
 add_executable(${name} main_test.cc)
 target_compile_options(${name} PUBLIC ${PADDLE_COMPILE_FLAGS})
 target_include_directories(${name} PUBLIC ${pybind11_INCLUDE_DIRS})
-target_link_libraries(${name} ${PYTHON_LIBRARIES} ${PADDLE_LINK_FLAGS})
+target_link_libraries(${name} ${PYTHON_LIBRARIES} ${PADDLE_LINK_FLAGS} utils)
 
 if(USE_TEST)
     enable_testing()

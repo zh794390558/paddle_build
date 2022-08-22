@@ -1,9 +1,32 @@
+#include "utils/log.h"
+
 #include "paddle/extension.h"
 #include "paddle/jit/all.h"
 #include "paddle/phi/api/all.h"
 
+
+#include "paddle/fluid/platform/place.h"
+#include "paddle/fluid/platform/profiler.h"
+#include "paddle/fluid/platform/profiler/event_python.h"
+#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/fluid/platform/profiler/profiler.h"
+
+using paddle::platform::Profiler;
+using paddle::platform::ProfilerOptions;
+using paddle::platform::ProfilerResult;
+using paddle::platform::RecordInstantEvent;
+using paddle::platform::TracerEventType;
+using paddle::platform::RecordEvent;
+
 int main() {
   paddle::jit::utils::InitKernelSignatureMap();
+
+  ProfilerOptions options;
+  options.trace_level = 3;
+  options.trace_switch = 0;
+  auto profiler = Profiler::Create(options);
+  profiler->Prepare();
+  profiler->Start();
 
   // tensor op
   std::cout << "Run Start" << std::endl;
@@ -12,7 +35,7 @@ int main() {
   auto b = paddle::full({4, 5}, 3.0);
   auto out = paddle::matmul(a, b);
   std::cout << "Run End" << std::endl;
-
+ 
   // load model
   auto layer =
       paddle::jit::Load("chunk_wenetspeech_static/export.jit", phi::CPUPlace());
@@ -46,4 +69,7 @@ int main() {
             << std::endl;
   std::cout << "subsampling_rate: " << layer.Attribute<int>("subsampling_rate")
             << std::endl;
+
+  auto profiler_result = profiler->Stop(); 
+  profiler_result->Save("test.prof");
 }
