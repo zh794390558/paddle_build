@@ -23,7 +23,7 @@ int main() {
 
   ProfilerOptions options;
   options.trace_level = 3;
-  options.trace_switch = 0;
+  options.trace_switch = 1;
   auto profiler = Profiler::Create(options);
   profiler->Prepare();
   profiler->Start();
