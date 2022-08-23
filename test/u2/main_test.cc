@@ -22,8 +22,8 @@ int main() {
   paddle::jit::utils::InitKernelSignatureMap();
 
   ProfilerOptions options;
-  options.trace_level = 3;
-  options.trace_switch = 1;
+  options.trace_level = 2;
+  options.trace_switch = 3;
   auto profiler = Profiler::Create(options);
   profiler->Prepare();
   profiler->Start();
