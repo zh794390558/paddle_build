@@ -17,10 +17,12 @@ using paddle::platform::ProfilerResult;
 using paddle::platform::RecordInstantEvent;
 using paddle::platform::TracerEventType;
 using paddle::platform::RecordEvent;
+using paddle::platform::EnableHostEventRecorder;
 
 int main() {
   paddle::jit::utils::InitKernelSignatureMap();
 
+  EnableHostEventRecorder();
   ProfilerOptions options;
   options.trace_level = 2;
   options.trace_switch = 3;
@@ -71,5 +73,5 @@ int main() {
             << std::endl;
 
   auto profiler_result = profiler->Stop(); 
-  profiler_result->Save("test.prof");
+  profiler_result->Save("main.test.prof");
 }
