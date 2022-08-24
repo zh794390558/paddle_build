@@ -24,6 +24,21 @@
 #include "utils/timer.h"
 #include "utils/utils.h"
 
+
+#include "paddle/fluid/platform/place.h"
+#include "paddle/fluid/platform/profiler.h"
+#include "paddle/fluid/platform/profiler/event_python.h"
+#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/fluid/platform/profiler/profiler.h"
+
+using paddle::platform::Profiler;
+using paddle::platform::ProfilerOptions;
+using paddle::platform::ProfilerResult;
+using paddle::platform::RecordInstantEvent;
+using paddle::platform::TracerEventType;
+using paddle::platform::RecordEvent;
+using paddle::platform::EnableHostEventRecorder;
+
 DEFINE_bool(simulate_streaming, false, "simulate streaming input");
 DEFINE_bool(output_nbest, false, "output n-best of decode result");
 DEFINE_string(wav_path, "", "single wave path");
@@ -133,6 +148,16 @@ int main(int argc, char* argv[]) {
   google::InstallFailureSignalHandler();
   FLAGS_logtostderr = 1;
 
+  // profiler
+  EnableHostEventRecorder();
+  ProfilerOptions options;
+  options.trace_level = 2;
+  options.trace_switch = 3;
+  auto profiler = Profiler::Create(options);
+  profiler->Prepare();
+  profiler->Start();
+
+
   g_decode_config = ppspeech::InitDecodeOptionsFromFlags();
   g_feature_config = ppspeech::InitFeaturePipelineConfigFromFlags();
   g_decode_resource = ppspeech::InitDecodeResourceFromFlags();
@@ -171,5 +196,9 @@ int main(int argc, char* argv[]) {
             << g_total_decode_time << "ms.";
   LOG(INFO) << "RTF: " << std::setprecision(4)
             << static_cast<float>(g_total_decode_time) / g_total_waves_dur;
+
+
+  auto profiler_result = profiler->Stop(); 
+  profiler_result->Save("decoder.main.prof");
   return 0;
 }
