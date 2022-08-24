@@ -24,11 +24,8 @@
 #include "utils/timer.h"
 #include "utils/utils.h"
 
-
-#include "paddle/fluid/platform/place.h"
+// profiler
 #include "paddle/fluid/platform/profiler.h"
-#include "paddle/fluid/platform/profiler/event_python.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/profiler.h"
 
 using paddle::platform::Profiler;
@@ -197,7 +194,7 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "RTF: " << std::setprecision(4)
             << static_cast<float>(g_total_decode_time) / g_total_waves_dur;
 
-
+  // profiler
   auto profiler_result = profiler->Stop(); 
   profiler_result->Save("decoder.main.prof");
   return 0;

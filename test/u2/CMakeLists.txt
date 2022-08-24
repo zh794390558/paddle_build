@@ -65,6 +65,8 @@ include(openfst)
 include(boost)
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
+
+  # include dir for profiler
   /workspace/Paddle
   /workspace/Paddle/build_cuda
   /workspace/Paddle/build_cuda/third_party/protobuf/src/extern_protobuf/src/
@@ -98,9 +100,4 @@ if(USE_TEST)
     enable_testing()
     include(gtest)
     add_subdirectory(test)
-
-    # add_test(
-    #     NAME main_test
-    #     COMMAND $<TARGET_FILE:main_test>
-    # )
 endif()

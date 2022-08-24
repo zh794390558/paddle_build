@@ -25,6 +25,10 @@
 
 #include "utils/log.h"
 
+#include "paddle/fluid/platform/profiler.h"
+using paddle::platform::TracerEventType;
+using paddle::platform::RecordEvent;
+
 namespace ppspeech {
 
 // load model and attrs
@@ -108,6 +112,7 @@ void PaddleAsrModel::Reset() {
 void PaddleAsrModel::ForwardEncoderChunkImpl(
     const std::vector<std::vector<float>>& chunk_feats,
     std::vector<std::vector<float>>* out_prob) {
+  RecordEvent event("ForwardEncoderChunkImpl", TracerEventType::UserDefined, 1);
   // 1. splice cached_feature, and chunk_feats
   //  First dimension is B, which is 1.
   int num_frames = cached_feats_.size() + chunk_feats.size();
@@ -296,6 +301,8 @@ void PaddleAsrModel::AttentionRescoring(
     const std::vector<std::vector<int>>& hyps,
     float reverse_weight,
     std::vector<float>* rescoring_score) {
+  RecordEvent event("AttentionRescoring", TracerEventType::UserDefined, 1);
+
   CHECK(rescoring_score != nullptr);
 
   int num_hyps = hyps.size();
