@@ -1,5 +1,9 @@
 mkdir -p build_cuda && cd build_cuda
 
+
+#export CCACHE_DIR=/workspace/.ccache
+#export CACHE_DIR=/workspace/.cache
+
 # 执行cmake指令
 cmake -DPY_VERSION=3.7 \
       -DWITH_TESTING=ON \
