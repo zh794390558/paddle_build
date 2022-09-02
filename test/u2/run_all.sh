@@ -20,4 +20,4 @@ export LD_LIBRARY_PATH=/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-p
 	--model_path "chunk_wenetspeech_static/export.jit" \
 	--unit_path "chunk_wenetspeech_static/unit.txt" \
 	--cmvn_path "chunk_wenetspeech_static/mean_std.json" \
-	--wav_path zh.wav
+	--wav_scp wav.scp
