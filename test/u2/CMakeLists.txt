@@ -63,7 +63,10 @@ string(STRIP ${PADDLE_COMPILE_FLAGS} PADDLE_COMPILE_FLAGS)
 
 
 # for LD_LIBRARY_PATH
-set(PADDLE_LIB_DIRS /workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/libs/)
+# set(PADDLE_LIB_DIRS /workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/libs/)
+execute_process(COMMAND python -c "import paddle ; print(':'.join(paddle.sysconfig.get_lib()), end='')"
+                OUTPUT_VARIABLE PADDLE_LIB_DIRS)
+message(STATUS PADDLE_LIB_DIRS= ${PADDLE_LIB_DIRS})
 
 
 # includes

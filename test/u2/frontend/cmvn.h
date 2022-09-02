@@ -18,8 +18,8 @@ class Cmvn {
   int Compute(std::vector<std::vector<float>>& feats);
 
  private:
-  std::vector<float> mean_;
-  std::vector<float> var_inv_;
+  std::vector<float> mean_{0.0};
+  std::vector<float> var_inv_{1.0};
   uint64_t frame_num_;
 };
 
