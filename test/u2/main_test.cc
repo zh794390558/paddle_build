@@ -4,7 +4,7 @@
 #include "paddle/jit/all.h"
 #include "paddle/phi/api/all.h"
 
-
+#ifdef USE_PROFILING
 #include "paddle/fluid/platform/place.h"
 #include "paddle/fluid/platform/profiler.h"
 #include "paddle/fluid/platform/profiler/event_python.h"
@@ -18,10 +18,12 @@ using paddle::platform::RecordInstantEvent;
 using paddle::platform::TracerEventType;
 using paddle::platform::RecordEvent;
 using paddle::platform::EnableHostEventRecorder;
+#endif
 
 int main() {
   paddle::jit::utils::InitKernelSignatureMap();
 
+#ifdef USE_PROFILING
   EnableHostEventRecorder();
   ProfilerOptions options;
   options.trace_level = 2;
@@ -29,6 +31,7 @@ int main() {
   auto profiler = Profiler::Create(options);
   profiler->Prepare();
   profiler->Start();
+#endif
 
   // tensor op
   std::cout << "Run Start" << std::endl;
@@ -72,6 +75,8 @@ int main() {
   std::cout << "subsampling_rate: " << layer.Attribute<int>("subsampling_rate")
             << std::endl;
 
+#ifdef USE_PROFILING
   auto profiler_result = profiler->Stop(); 
   profiler_result->Save("main.test.prof");
+#endif
 }

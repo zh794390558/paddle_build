@@ -7,6 +7,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
 option(USE_TEST "whether to build unit test" ON)
+option(USE_PROFILING "whether to do profiling" OFF)
 
 # third party
 include(FetchContent)
@@ -22,6 +23,10 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # debug mode
 if(CMAKE_BUILD_TYPES STREQUAL Debug)
     add_definitions(-DDEUBG)
+endif()
+
+if(USE_PROFILING)
+  add_definitions(-DUSE_PROFILING)
 endif()
 
 # openfst
@@ -57,22 +62,29 @@ message(STATUS PADDLE_COMPILE_FLAGS= ${PADDLE_COMPILE_FLAGS})
 string(STRIP ${PADDLE_COMPILE_FLAGS} PADDLE_COMPILE_FLAGS)
 
 
+# for LD_LIBRARY_PATH
 set(PADDLE_LIB_DIRS /workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/libs/)
 
 
-# Include all dependency
-include(openfst)
-include(boost)
+# includes
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-  # include dir for profiler
+if(USE_PROFILING)
+include_directories(
   /workspace/Paddle
   /workspace/Paddle/build_cuda
   /workspace/Paddle/build_cuda/third_party/protobuf/src/extern_protobuf/src/
   /workspace/Paddle/build_cuda/third_party/eigen3/src/extern_eigen3
   /workspace/Paddle/build_cuda/third_party/dlpack/src/extern_dlpack/include/
 )
+endif()
+
+# Include all dependency
+include(openfst)
+include(boost)
+
 
 # submodule
 add_subdirectory(utils)
