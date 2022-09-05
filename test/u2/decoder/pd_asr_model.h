@@ -58,6 +58,8 @@ class PaddleAsrModel : public AsrModelItf {
                          const std::vector<int>& hyp,
                          int eos);
 
+  void Warmup();
+
  private:
   phi::Place dev_;
   std::shared_ptr<PaddleLayer> model_ = nullptr;
