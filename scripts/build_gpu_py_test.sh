@@ -1,11 +1,16 @@
 mkdir -p build_cuda && cd build_cuda
 
+
+export CCACHE_DIR=/workspace/.ccache
+export CACHE_DIR=/workspace/.cache
+
 # 执行cmake指令
 cmake -DPY_VERSION=3.7 \
       -DWITH_TESTING=ON \
       -DWITH_DISTRIBUTE=ON \
       -DWITH_AVX=ON \
       -DWITH_MKL=ON \
+      -DWITH_MKLDNN=ON \
       -DWITH_GPU=ON \
       -DCUDA_ARCH_NAME=Auto \
       -DWITH_TENSORRT=OFF \

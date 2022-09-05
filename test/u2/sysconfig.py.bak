@@ -50,7 +50,9 @@ def get_lib():
 
     """
     import paddle
-    return os.path.join(os.path.dirname(paddle.__file__), 'libs')
+    base_dir = os.path.dirname(paddle.__file__)
+    libs_dir = [os.path.join(base_dir, 'libs'), os.path.join(base_dir, 'fluid')]
+    return libs_dir
 
 def get_compile_flags():
     """Get the compilation flags for custom operators.
@@ -80,7 +82,8 @@ def get_link_flags():
           link_flags = paddle.sysconfig.get_link_flags()
     """
     flags = []
-    flags.append("-L%s" % get_lib())
+    lib_path = Path(paddle.__file__).parent / 'libs'
+    flags.append("-L%s" % lib_path)
     core_so_path = Path(paddle.__file__).parent / 'fluid'
     flags.append("-L%s" % core_so_path)
 

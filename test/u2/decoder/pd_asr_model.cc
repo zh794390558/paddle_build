@@ -25,6 +25,12 @@
 
 #include "utils/log.h"
 
+#ifdef USE_PROFILING
+#include "paddle/fluid/platform/profiler.h"
+using paddle::platform::TracerEventType;
+using paddle::platform::RecordEvent;
+#endif
+
 namespace ppspeech {
 
 // load model and attrs
@@ -108,6 +114,10 @@ void PaddleAsrModel::Reset() {
 void PaddleAsrModel::ForwardEncoderChunkImpl(
     const std::vector<std::vector<float>>& chunk_feats,
     std::vector<std::vector<float>>* out_prob) {
+#ifdef USE_PROFILING
+  RecordEvent event("ForwardEncoderChunkImpl", TracerEventType::UserDefined, 1);
+#endif
+
   // 1. splice cached_feature, and chunk_feats
   //  First dimension is B, which is 1.
   int num_frames = cached_feats_.size() + chunk_feats.size();
@@ -277,6 +287,7 @@ float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob,
   float score = 0.0f;
   std::vector<int64_t> dims = prob.shape();
   CHECK(dims.size() == 3);
+  VLOG(2) << "prob shape: " << dims[0] << ", " << dims[1] << ", " << dims[2];
   CHECK(dims[0] == 1);
   int vocab_dim = static_cast<int>(dims[1]);
 
@@ -296,12 +307,17 @@ void PaddleAsrModel::AttentionRescoring(
     const std::vector<std::vector<int>>& hyps,
     float reverse_weight,
     std::vector<float>* rescoring_score) {
+#ifdef USE_PROFILING
+  RecordEvent event("AttentionRescoring", TracerEventType::UserDefined, 1);
+#endif
+
   CHECK(rescoring_score != nullptr);
 
   int num_hyps = hyps.size();
   rescoring_score->resize(num_hyps, 0.0f);
 
   if (num_hyps == 0) return;
+  VLOG(2) << "num hyps: " << num_hyps;
 
   if (encoder_outs_.size() == 0) {
     // no encoder outs
@@ -381,9 +397,13 @@ void PaddleAsrModel::AttentionRescoring(
   // compute rescoring score
   using IntArray = paddle::experimental::IntArray;
   std::vector<paddle::Tensor> probs_v =
-      paddle::split(probs, IntArray({num_hyps}), 0);
+      paddle::experimental::split_with_num(probs, num_hyps, 0);
   std::vector<paddle::Tensor> r_probs_v =
-      paddle::split(r_probs, IntArray({num_hyps}), 0);
+      paddle::experimental::split_with_num(r_probs, num_hyps, 0);
+  
+  VLOG(2) << "split prob: " << probs_v[0].shape().size() << " 0: " << probs_v[0].shape()[0] << ", " << probs_v[0].shape()[1] << ", " << probs_v[0].shape()[2];
+  CHECK(probs_v.size() == num_hyps) << ": is "<<  probs_v.size() << " expect: " << num_hyps;
+  CHECK(r_probs_v.size() == num_hyps)<< ": is "<<  r_probs_v.size() << " expect: " << num_hyps;
 
   for (size_t i = 0; i < num_hyps; ++i) {
     const std::vector<int>& hyp = hyps[i];

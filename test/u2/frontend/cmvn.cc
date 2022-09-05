@@ -10,6 +10,12 @@ namespace ppspeech {
 
 Cmvn::Cmvn(const std::string& cmvn_path) {
   std::ifstream in(cmvn_path);
+
+  if(!in.is_open()){
+    VLOG(1) << "No CMVN path!!!";
+    return;
+  }
+  
   CHECK(in.is_open());
   VLOG(1) << "Load cmvn: " << cmvn_path;
   std::string json_str((std::istreambuf_iterator<char>(in)),

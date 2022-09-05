@@ -24,11 +24,9 @@
 #include "utils/timer.h"
 #include "utils/utils.h"
 
-
-#include "paddle/fluid/platform/place.h"
+// profiler
+#ifdef USE_PROFILING
 #include "paddle/fluid/platform/profiler.h"
-#include "paddle/fluid/platform/profiler/event_python.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/profiler.h"
 
 using paddle::platform::Profiler;
@@ -38,6 +36,7 @@ using paddle::platform::RecordInstantEvent;
 using paddle::platform::TracerEventType;
 using paddle::platform::RecordEvent;
 using paddle::platform::EnableHostEventRecorder;
+#endif
 
 DEFINE_bool(simulate_streaming, false, "simulate streaming input");
 DEFINE_bool(output_nbest, false, "output n-best of decode result");
@@ -149,6 +148,7 @@ int main(int argc, char* argv[]) {
   FLAGS_logtostderr = 1;
 
   // profiler
+#ifdef USE_PROFILING
   EnableHostEventRecorder();
   ProfilerOptions options;
   options.trace_level = 2;
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
   auto profiler = Profiler::Create(options);
   profiler->Prepare();
   profiler->Start();
-
+#endif
 
   g_decode_config = ppspeech::InitDecodeOptionsFromFlags();
   g_feature_config = ppspeech::InitFeaturePipelineConfigFromFlags();
@@ -197,8 +197,10 @@ int main(int argc, char* argv[]) {
   LOG(INFO) << "RTF: " << std::setprecision(4)
             << static_cast<float>(g_total_decode_time) / g_total_waves_dur;
 
-
+  // profiler
+#ifdef USE_PROFILING
   auto profiler_result = profiler->Stop(); 
   profiler_result->Save("decoder.main.prof");
+#endif
   return 0;
 }
