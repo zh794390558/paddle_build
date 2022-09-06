@@ -73,42 +73,42 @@ void PaddleAsrModel::Warmup(){
     RecordEvent event("warmup", TracerEventType::UserDefined, 1);
 #endif
 
-//   {
-// #ifdef USE_PROFILING
-//     RecordEvent event("warmup-encoder-ctc", TracerEventType::UserDefined, 1);
-// #endif
-//    int feature_dim = 80;
-//    int frame_num = 20;
-//     paddle::Tensor feats = paddle::full(
-//         {1, frame_num, feature_dim}, 0.12f, paddle::DataType::FLOAT32);
-//     paddle::Tensor offset = paddle::full({1}, 0, paddle::DataType::INT32);
-//     std::vector<paddle::Tensor> inputs = {
-//           feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
-//     std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
+  {
+#ifdef USE_PROFILING
+    RecordEvent event("warmup-encoder-ctc", TracerEventType::UserDefined, 1);
+#endif
+   int feature_dim = 80;
+   int frame_num = 16*4 + 3; // chunk_size * downsample_rate + (receptive_field - downsample_rate)
+    paddle::Tensor feats = paddle::full(
+        {1, frame_num, feature_dim}, 0.12f, paddle::DataType::FLOAT32);
+    paddle::Tensor offset = paddle::zeros({1}, paddle::DataType::INT32);
+    std::vector<paddle::Tensor> inputs = {
+          feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
+    std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
 
 
-//     auto chunk_out = outputs[0];
-//     inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
-//     outputs = ctc_activation_(inputs);
-//   }
+    auto chunk_out = outputs[0];
+    inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
+    outputs = ctc_activation_(inputs);
+  }
 
-//   {
-// #ifdef USE_PROFILING
-//     RecordEvent event("warmup-decoder", TracerEventType::UserDefined, 1);
-// #endif
+  {
+#ifdef USE_PROFILING
+    RecordEvent event("warmup-decoder", TracerEventType::UserDefined, 1);
+#endif
 
-//   auto hyps =
-//       paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());
-//   auto hyps_lens =
-//       paddle::full({10}, 8, paddle::DataType::INT64, phi::CPUPlace());
-//   auto encoder_out =
-//       paddle::full({1, 20, 512}, 1, paddle::DataType::FLOAT32, phi::CPUPlace());
+  auto hyps =
+      paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());
+  auto hyps_lens =
+      paddle::full({10}, 8, paddle::DataType::INT64, phi::CPUPlace());
+  auto encoder_out =
+      paddle::ones({1, 20, 512}, paddle::DataType::FLOAT32, phi::CPUPlace());
 
-//     std::vector<paddle::experimental::Tensor> inputs{
-//         hyps, hyps_lens, encoder_out};
+    std::vector<paddle::experimental::Tensor> inputs{
+        hyps, hyps_lens, encoder_out};
 
-//    std::vector<paddle::experimental::Tensor> outputs = forward_attention_decoder_(inputs);
-//   }
+   std::vector<paddle::experimental::Tensor> outputs = forward_attention_decoder_(inputs);
+  }
 
   Reset();
 }
@@ -147,8 +147,8 @@ void PaddleAsrModel::Reset() {
   offset_ = 0;
   cached_feats_.clear();
 
-  att_cache_ = std::move(paddle::full({0, 0, 0, 0}, 0.0));
-  cnn_cache_ = std::move(paddle::full({0, 0, 0, 0}, 0.0));
+  att_cache_ = std::move(paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32));
+  cnn_cache_ = std::move(paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32));
 
   encoder_outs_.clear();
 }
@@ -169,8 +169,8 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   VLOG(3) << "feature_dim: " << feature_dim;
 
   // feats (B=1,T,D)
-  paddle::Tensor feats = paddle::full(
-      {1, num_frames, feature_dim}, 0.0f, paddle::DataType::FLOAT32);
+  paddle::Tensor feats = paddle::zeros(
+      {1, num_frames, feature_dim}, paddle::DataType::FLOAT32);
   float* feats_ptr = feats.mutable_data<float>();
 
   for (size_t i = 0; i < cached_feats_.size(); ++i) {
@@ -369,7 +369,7 @@ void PaddleAsrModel::AttentionRescoring(
 
   // prepare input
   paddle::Tensor hyps_lens =
-      paddle::full({num_hyps}, 0, paddle::DataType::INT64);
+      paddle::zeros({num_hyps}, paddle::DataType::INT64);
   int64_t* hyps_len_ptr = hyps_lens.mutable_data<int64_t>();
   int max_hyps_len = 0;
   for (size_t i = 0; i < num_hyps; ++i) {
@@ -379,7 +379,7 @@ void PaddleAsrModel::AttentionRescoring(
   }
 
   paddle::Tensor hyps_tensor =
-      paddle::full({num_hyps, max_hyps_len}, 0, paddle::DataType::INT64);
+      paddle::zeros({num_hyps, max_hyps_len}, paddle::DataType::INT64);
   int64_t* hyps_ptr = hyps_tensor.mutable_data<int64_t>();
   for (size_t i = 0; i < num_hyps; ++i) {
     const std::vector<int>& hyp = hyps[i];
