@@ -22,11 +22,11 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # debug mode
 if(CMAKE_BUILD_TYPES STREQUAL Debug)
-    add_definitions(-DDEUBG)
+  add_compile_options(-DDEUBG)
 endif()
 
 if(USE_PROFILING)
-  add_definitions(-DUSE_PROFILING)
+  add_compile_options(-DUSE_PROFILING)
 endif()
 
 # openfst
