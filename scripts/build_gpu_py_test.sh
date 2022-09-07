@@ -19,7 +19,7 @@ cmake -DPY_VERSION=3.7 \
       -DCMAKE_BUILD_TYPE=Release \
       ..
 # 使用make编译
-make -j20
+make -j40
 # 编译成功后可在dist目录找到生成的.whl包
 #pip3 install python/dist/paddlepaddle-2.0.0-cp36-cp36m-linux_x86_64.whl
 # 预测库编译
