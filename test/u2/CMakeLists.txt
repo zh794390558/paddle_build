@@ -7,6 +7,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
 option(USE_TEST "whether to build unit test" ON)
+option(USE_DEBUG "whether to build with debug" OFF)
 option(USE_PROFILING "whether to do profiling" OFF)
 
 # third party
@@ -21,7 +22,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 
 # debug mode
-if(CMAKE_BUILD_TYPES STREQUAL Debug)
+if(CMAKE_BUILD_TYPES STREQUAL Debug OR USE_DEBUG)
   add_compile_options(-DDEUBG)
 endif()
 

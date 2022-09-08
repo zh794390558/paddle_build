@@ -12,7 +12,7 @@ Cmvn::Cmvn(const std::string& cmvn_path) {
   std::ifstream in(cmvn_path);
 
   if(!in.is_open()){
-    VLOG(1) << "No CMVN path!!!";
+    LOG(WARNING) << "No CMVN path!!!";
     return;
   }
   
@@ -64,6 +64,7 @@ Cmvn::Cmvn(const std::string& cmvn_path) {
 
     var_inv_.push_back(scale);
   }
+  CHECK(var_inv_.size() == mean_.size());
 }
 
 // Compute cmvn, return num frames
@@ -71,6 +72,10 @@ int Cmvn::Compute(std::vector<std::vector<float>>& feats) {
   int nframe = feats.size();
   CHECK(nframe > 0);
   int feat_dim = feats[0].size();
+  if (mean_.size() != feat_dim){
+    LOG(WARNING) << "CMVN not provide, please make sure it is correct. cmvn: " << mean_.size() << " fbank: " << feat_dim;
+    return nframe;
+  }
 
   for (int i = 0; i < nframe; i++) {
     for (int j = 0; j < feat_dim; j++) {

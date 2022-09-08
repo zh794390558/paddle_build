@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright 2021 Mobvoi Inc. All Rights Reserved.
+# usage: ./local/compute-wer.py --char=1 --v=1 test.hyp text &> test.err
 import codecs
 import re
 import sys

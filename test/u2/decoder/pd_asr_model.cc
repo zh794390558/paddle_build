@@ -196,10 +196,10 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   path << offset_;
   std::ofstream feat_fobj(path.str().c_str(), std::ios::out);
   CHECK(feat_fobj.is_open());
-  feat_fobj << feats.shape()[0] << " " << feats.shape()[1] << " "
-            << feats.shape()[2] << "\n";
+  // feat_fobj << feats.shape()[0] << " " << feats.shape()[1] << " "
+  //           << feats.shape()[2] << "\n";
   for (int i = 0; i < feats.numel(); i++) {
-    feat_fobj << feats_ptr[i] << " ";
+    feat_fobj << std::setprecision(18) << feats_ptr[i] << " ";
     if ((i + 1) % feature_dim == 0) {
       feat_fobj << "\n";
     }
