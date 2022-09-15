@@ -39,12 +39,13 @@ DEFINE_string(onnx_dir, "", "directory where the onnx model is saved");
 DEFINE_int32(num_bins, 80, "num mel bins for fbank feature");
 DEFINE_int32(sample_rate, 16000, "sample rate for audio");
 DEFINE_string(cmvn_path, "", "cmvn stats path.");
+DEFINE_string(feature_pipeline_type, "graph", "using kaldi or graph feature pipeline. When graph mode, using FLAGS_model_path as feature model path");
 
 // TLG fst
 DEFINE_string(fst_path, "", "TLG fst path");
 
 // DecodeOptions flags
-DEFINE_int32(chunk_size, 16, "decoding chunk size");
+DEFINE_int32(chunk_size, -1, "decoding chunk size");
 DEFINE_int32(num_left_chunks, -1, "left chunks in decoding");
 DEFINE_double(ctc_weight,
               0.5,
@@ -98,7 +99,7 @@ namespace ppspeech {
 
 std::shared_ptr<FeaturePipelineConfig> InitFeaturePipelineConfigFromFlags() {
   auto feature_config = std::make_shared<FeaturePipelineConfig>(
-      FLAGS_num_bins, FLAGS_sample_rate, FLAGS_cmvn_path);
+      FLAGS_num_bins, FLAGS_sample_rate, FLAGS_cmvn_path, FLAGS_feature_pipeline_type, FLAGS_model_path);
   return feature_config;
 }
 

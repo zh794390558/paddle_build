@@ -24,6 +24,9 @@
 #include "utils/block_queue.h"
 #include "utils/log.h"
 
+#include "paddle/jit/all.h"
+#include "paddle/phi/api/all.h"
+
 namespace ppspeech {
 
 struct FeaturePipelineConfig {
@@ -32,19 +35,29 @@ struct FeaturePipelineConfig {
   int frame_length;       // points in 25ms
   int frame_shift;        // points in 10ms
   std::string cmvn_path;  // cmvn path
+  std::string pipeline_type; // graph, kaldi
+  std::string model_path_w_prefix; // need when using graph feature pipelilne
 
   FeaturePipelineConfig(int num_bins,
                         int sample_rate,
-                        const std::string& cmvn_path)
-      : num_bins(num_bins), sample_rate(sample_rate), cmvn_path(cmvn_path) {
+                        const std::string& cmvn_path,
+                        const std::string& pipeline_type="kaldi",
+                        const std::string& model_path_w_prefix="")
+      : num_bins(num_bins), sample_rate(sample_rate), cmvn_path(cmvn_path),  pipeline_type(pipeline_type), model_path_w_prefix(model_path_w_prefix) {
     frame_length = sample_rate / 1000 * 25;
     frame_shift = sample_rate / 1000 * 10;
+    if (pipeline_type == "graph"){
+      CHECK(!model_path_w_prefix.empty()) << "model_path_w_prefix must be set when using graph feature pipeline.";
+    }
   }
 
   void Info() const {
-    std::cout << "feature pipeline config"
+    LOG(INFO) << "feature pipeline config: "
               << " num_bins " << num_bins << " frame_length " << frame_length
-              << " frame_shift " << frame_shift;
+              << " frame_shift " << frame_shift << " pipeline_type " << pipeline_type;
+    if (pipeline_type == "graph"){
+      LOG(INFO) << "Using graph feature pipeline, model path is " << model_path_w_prefix;
+    }
   }
 };
 
@@ -58,6 +71,8 @@ struct FeaturePipelineConfig {
 
 class FeaturePipeline {
  public:
+  using PaddleLayer = paddle::jit::Layer;
+
   explicit FeaturePipeline(const FeaturePipelineConfig& config);
 
   // The feature extraction is done in AcceptWaveform().
@@ -98,8 +113,13 @@ class FeaturePipeline {
  private:
   const FeaturePipelineConfig& config_;
   int feature_dim_;
-  Fbank fbank_;
-  Cmvn cmvn_;
+  // kaldi
+  std::shared_ptr<Fbank> fbank_{nullptr};
+  std::shared_ptr<Cmvn> cmvn_{nullptr};
+  // graph
+  std::shared_ptr<PaddleLayer> model_{nullptr};
+  paddle::jit::Function feature_pipeline_func_;
+
 
   BlockingQueue<std::vector<float>> feature_queue_;
   int num_frames_;

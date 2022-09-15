@@ -22,6 +22,7 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <iomanip>
 
 #include "utils/log.h"
 
