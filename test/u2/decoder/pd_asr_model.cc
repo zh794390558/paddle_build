@@ -183,16 +183,10 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
 
   for (size_t i = 0; i < cached_feats_.size(); ++i) {
     float* row = feats_ptr + i * feature_dim;
-    // for (int j = 0; j < feature_dim; ++j){
-    //     row[j] = cached_feats_[i].data()[j];
-    // }
     std::memcpy(row, cached_feats_[i].data(), feature_dim * sizeof(float));
   }
   for (size_t i = 0; i < chunk_feats.size(); ++i) {
     float* row = feats_ptr + (cached_feats_.size() + i) * feature_dim;
-    // for (int j =0; j < feature_dim; ++j){
-    //     row[j] = chunk_feats[i].data()[j];
-    // }
     std::memcpy(row, chunk_feats[i].data(), feature_dim * sizeof(float));
   }
 
@@ -225,17 +219,11 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   int required_cache_size = num_left_chunks_ * chunk_size_;  // -1 * 16
   // must be scalar, but paddle do not have scalar.
   paddle::Tensor offset = paddle::full({1}, offset_, paddle::DataType::INT32);
-  // VLOG(3) << "offset shape: " << offset.shape()[0] ;
-  // VLOG(3) << "att_cache_ shape: " << att_cache_.shape()[0] << ", "  <<
-  // att_cache_.shape()[1] << ", " << att_cache_.shape()[2] << ", " <<
-  // cnn_cache_.shape()[3]; VLOG(3) << "cnn_cache_ shape: " <<
-  // cnn_cache_.shape()[0] << ", "  << cnn_cache_.shape()[1] << ", " <<
-  // cnn_cache_.shape()[2] << ", " << cnn_cache_.shape()[3]; freeze
-  // `required_cache_size` in graph, so not specific it in function call.
+  // freeze `required_cache_size` in graph, so not specific it in function call.
   std::vector<paddle::Tensor> inputs = {
       feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
-  VLOG(3) << "inputs size: " << inputs.size();
   std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
+  VLOG(3) << "inputs size: " << inputs.size();
   VLOG(3) << "outputs size: " << outputs.size();
   CHECK(outputs.size() == 3);
 
@@ -269,7 +257,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   offset_ += chunk_out.shape()[1];
 
   // collects encoder outs.
-  VLOG(1) << "encoder_outs_ size: " << encoder_outs_.size();
+  VLOG(2) << "encoder_outs_ size: " << encoder_outs_.size();
   encoder_outs_.push_back(chunk_out);
 
 #ifdef DEUBG
@@ -316,6 +304,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   }
   logprob_fobj << "\n";
 #endif  // end DEUBG
+
 #endif  // end USE_GPU
 
   // Copy to output, (B=1,T,D)
@@ -358,11 +347,11 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   return;
 }
 
-// Debug api
+// Debug API
 void PaddleAsrModel::FeedEncoderOuts(paddle::Tensor& encoder_out) {
-  // // encoder_out (T,D)
-  // encoder_outs_.clear();
-  // encoder_outs_.push_back(encoder_out);
+  // encoder_out (T,D)
+  encoder_outs_.clear();
+  encoder_outs_.push_back(encoder_out);
 }
 
 float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob,
@@ -381,10 +370,8 @@ float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob,
   const float* prob_ptr = prob.data<float>();
   for (size_t i = 0; i < hyp.size(); ++i) {
     const float* row = prob_ptr + i * vocab_dim;
-    // score += prob_ptr[i][hyp[i]];
     score += row[hyp[i]];
   }
-  //  score += prob_ptr[hyp.size()][eos];
   const float* row = prob_ptr + hyp.size() * vocab_dim;
   score += row[eos];
   return score;
@@ -450,12 +437,12 @@ void PaddleAsrModel::AttentionRescoring(
     }
     logits_out_fobj << "\n";
   }
-
 #endif  // end DEUBG
 
   // forward attention decoder by hyps and correspoinding encoder_outs_
   paddle::Tensor encoder_out = paddle::concat(encoder_outs_, 1);
-  VLOG(1) << "encoder_outs_ size: " << encoder_outs_.size();
+  VLOG(2) << "encoder_outs_ size: " << encoder_outs_.size();
+
 #ifdef DEUBG
   {
     std::stringstream path("encoder_out0",
@@ -519,9 +506,6 @@ void PaddleAsrModel::AttentionRescoring(
     size_t size = probs.numel();
     for (int i = 0; i < size; i++) {
       dec_logprob_fobj << dec_logprob_ptr[i] << "\n";
-      // if ((i + 1) % probs.shape()[2]== 0) {
-      //   dec_logprob_fobj << "\n";
-      // }
     }
   }
 #endif  // end DEUBG

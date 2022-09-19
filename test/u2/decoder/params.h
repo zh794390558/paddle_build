@@ -40,7 +40,7 @@ DEFINE_int32(num_bins, 80, "num mel bins for fbank feature");
 DEFINE_int32(sample_rate, 16000, "sample rate for audio");
 DEFINE_string(cmvn_path, "", "cmvn stats path.");
 DEFINE_string(feature_pipeline_type,
-              "graph",
+              "kaldi",
               "using kaldi or graph feature pipeline. When graph mode, using "
               "FLAGS_model_path as feature model path");
 
