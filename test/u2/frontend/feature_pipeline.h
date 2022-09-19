@@ -52,11 +52,11 @@ struct FeaturePipelineConfig {
   }
 
   void Info() const {
-    LOG(INFO) << "feature pipeline config: "
+    LOG_FIRST_N(INFO, 1) << "feature pipeline config: "
               << " num_bins " << num_bins << " frame_length " << frame_length
               << " frame_shift " << frame_shift << " pipeline_type " << pipeline_type;
     if (pipeline_type == "graph"){
-      LOG(INFO) << "Using graph feature pipeline, model path is " << model_path_w_prefix;
+      LOG_FIRST_N(INFO, 1) << "Using graph feature pipeline, model path is " << model_path_w_prefix;
     }
   }
 };

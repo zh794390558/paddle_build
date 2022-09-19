@@ -16,6 +16,12 @@
 #include <algorithm>
 #include <utility>
 
+#ifdef USE_PROFILING
+#include "paddle/fluid/platform/profiler.h"
+using paddle::platform::TracerEventType;
+using paddle::platform::RecordEvent;
+#endif
+
 namespace ppspeech {
 
 FeaturePipeline::FeaturePipeline(const FeaturePipelineConfig& config)
@@ -38,6 +44,10 @@ FeaturePipeline::FeaturePipeline(const FeaturePipelineConfig& config)
       }
 
 void FeaturePipeline::AcceptWaveform(const float* pcm, const int& size) {
+#ifdef USE_PROFILING
+    RecordEvent event("AcceptWaveform", TracerEventType::UserDefined, 1);
+#endif
+
   std::vector<std::vector<float>> feats;
 
   // add wave cache
@@ -47,7 +57,6 @@ void FeaturePipeline::AcceptWaveform(const float* pcm, const int& size) {
 
   // compute feature
   int num_frames;
-  VLOG(1) << config_.pipeline_type;
   if (config_.pipeline_type == "kaldi"){
       num_frames = fbank_->Compute(waves, &feats);
       num_frames = cmvn_->Compute(feats);

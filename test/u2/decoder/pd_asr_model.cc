@@ -254,7 +254,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
 
 #ifdef DEUBG
-  path.str("logits");
+  path.str("encoder_logits");
   path << offset_ - chunk_out.shape()[1];
   std::ofstream logits_fobj(path.str().c_str(), std::ios::out);
   CHECK(logits_fobj.is_open());
@@ -274,7 +274,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   paddle::Tensor ctc_log_probs = outputs[0];
 
 #ifdef DEUBG
-  path.str("logprob");
+  path.str("encoder_logprob");
   path << offset_ - chunk_out.shape()[1];
 
   std::ofstream logprob_fobj(path.str().c_str(), std::ios::out);
@@ -292,7 +292,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
 #endif  // end DEUBG
 
   // collects encoder outs.
-  encoder_outs_.push_back(std::move(chunk_out));
+  encoder_outs_.push_back(chunk_out);
 #endif  // end USE_GPU
 
   // Copy to output, (B=1,T,D)
@@ -332,7 +332,7 @@ float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob,
   CHECK(dims.size() == 3);
   VLOG(2) << "prob shape: " << dims[0] << ", " << dims[1] << ", " << dims[2];
   CHECK(dims[0] == 1);
-  int vocab_dim = static_cast<int>(dims[1]);
+  int vocab_dim = static_cast<int>(dims[2]);
 
   const float* prob_ptr = prob.data<float>();
   for (size_t i = 0; i < hyp.size(); ++i) {
@@ -380,7 +380,7 @@ void PaddleAsrModel::AttentionRescoring(
   }
 
   paddle::Tensor hyps_tensor =
-      paddle::zeros({num_hyps, max_hyps_len}, paddle::DataType::INT64);
+      paddle::full({num_hyps, max_hyps_len}, eos_, paddle::DataType::INT64);
   int64_t* hyps_ptr = hyps_tensor.mutable_data<int64_t>();
   for (size_t i = 0; i < num_hyps; ++i) {
     const std::vector<int>& hyp = hyps[i];
@@ -392,34 +392,46 @@ void PaddleAsrModel::AttentionRescoring(
   }
   // forward attention decoder by hyps and correspoinding encoder_outs_
   paddle::Tensor encoder_out = paddle::concat(encoder_outs_, 1);
+  VLOG(1) << "encoder_outs_ size: " << encoder_outs_.size();
+#ifdef DEUBG
+{
+  std::stringstream path("encoder_out0", std::ios_base::app | std::ios_base::out);
+  std::ofstream encoder_out_fobj(path.str().c_str(), std::ios::out);
+  CHECK(encoder_out_fobj.is_open());
+
+  encoder_out_fobj << encoder_outs_[0].shape()[0] << " " << encoder_outs_[0].shape()[1]
+               << " " << encoder_outs_[0].shape()[2] << "\n";
+  const float* enc_logprob_ptr = encoder_outs_[0].data<float>();
+
+  size_t size = encoder_outs_[0].numel();
+  for (int i = 0; i < size; i++) {
+    encoder_out_fobj << enc_logprob_ptr[i] << "\n";
+  }
+}
+#endif  // end DEUBG
+
+
+#ifdef DEUBG
+{
+  std::stringstream path("encoder_out", std::ios_base::app | std::ios_base::out);
+  std::ofstream encoder_out_fobj(path.str().c_str(), std::ios::out);
+  CHECK(encoder_out_fobj.is_open());
+
+  encoder_out_fobj << encoder_out.shape()[0] << " " << encoder_out.shape()[1]
+               << " " << encoder_out.shape()[2] << "\n";
+  const float* enc_logprob_ptr = encoder_out.data<float>();
+
+  size_t size = encoder_out.numel();
+  for (int i = 0; i < size; i++) {
+    encoder_out_fobj << enc_logprob_ptr[i] << "\n";
+  }
+}
+#endif  // end DEUBG
 
   std::vector<paddle::experimental::Tensor> inputs{
       hyps_tensor, hyps_lens, encoder_out};
   std::vector<paddle::Tensor> outputs = forward_attention_decoder_(inputs);
   CHECK(outputs.size() == 1);  // not support backward decoder
-
-#ifdef DEBUG
-  float* fwd_ptr = outputs[0].data<float>();
-  for (int i = 0; i < outputs[0].numel(); ++i) {
-    std::cout << fwd_ptr[i] << " ";
-    if ((i + 1) % 5 == 0) {
-      std::cout << std::endl;
-    }
-  }
-  std::cout << std::endl;
-
-  std::cout << "encoder_out  shape: " << std::endl;
-  for (auto d : encoder_out.shape()) {
-    std::cout << d << " ";
-  }
-  std::cout << std::endl;
-
-  std::cout << "decoder output shape: " << std::endl;
-  for (auto d : outputs[0].shape()) {
-    std::cout << d << " ";
-  }
-  std::cout << std::endl;
-#endif
 
   // (B, Umax, V)
   paddle::Tensor probs = outputs[0];
@@ -427,6 +439,57 @@ void PaddleAsrModel::AttentionRescoring(
   CHECK(probs_shape.size() == 3);
   CHECK(probs_shape[0] == num_hyps);
   CHECK(probs_shape[1] == max_hyps_len);
+
+#ifdef DEUBG
+{
+  std::stringstream path("decoder_logprob", std::ios_base::app | std::ios_base::out);
+  std::ofstream dec_logprob_fobj(path.str().c_str(), std::ios::out);
+  CHECK(dec_logprob_fobj.is_open());
+
+  dec_logprob_fobj << probs.shape()[0] << " " << probs.shape()[1]
+               << " " << probs.shape()[2] << "\n";
+  const float* dec_logprob_ptr = probs.data<float>();
+
+  size_t size = probs.numel();
+  for (int i = 0; i < size; i++) {
+    dec_logprob_fobj << dec_logprob_ptr[i] << "\n";
+    // if ((i + 1) % probs.shape()[2]== 0) {
+    //   dec_logprob_fobj << "\n";
+    // }
+  }
+}
+#endif  // end DEUBG
+
+#ifdef DEUBG
+{
+  std::stringstream path("hyps_lens", std::ios_base::app | std::ios_base::out);
+  std::ofstream hyps_len_fobj(path.str().c_str(), std::ios::out);
+  CHECK(hyps_len_fobj.is_open());
+
+  const int64_t* hyps_lens_ptr = hyps_lens.data<int64_t>();
+
+  size_t size = hyps_lens.numel();
+  for (int i = 0; i < size; i++) {
+    hyps_len_fobj << hyps_lens_ptr[i] << "\n";
+  }
+}
+#endif  // end DEUBG
+
+
+#ifdef DEUBG
+{
+  std::stringstream path("hyps_tensor", std::ios_base::app | std::ios_base::out);
+  std::ofstream hyps_tensor_fobj(path.str().c_str(), std::ios::out);
+  CHECK(hyps_tensor_fobj.is_open());
+
+  const int64_t* hyps_tensor_ptr = hyps_tensor.data<int64_t>();
+
+  size_t size = hyps_tensor.numel();
+  for (int i = 0; i < size; i++) {
+    hyps_tensor_fobj << hyps_tensor_ptr[i] << "\n";
+  }
+}
+#endif  // end DEUBG
 
   // fake reverse probs
   CHECK(std::fabs(reverse_weight - 0.0f) <
@@ -444,7 +507,7 @@ void PaddleAsrModel::AttentionRescoring(
   std::vector<paddle::Tensor> r_probs_v =
       paddle::experimental::split_with_num(r_probs, num_hyps, 0);
   
-  VLOG(2) << "split prob: " << probs_v[0].shape().size() << " 0: " << probs_v[0].shape()[0] << ", " << probs_v[0].shape()[1] << ", " << probs_v[0].shape()[2];
+  VLOG(2) << "split prob: " <<  probs_v.size() <<  " " << probs_v[0].shape().size() << " 0: " << probs_v[0].shape()[0] << ", " << probs_v[0].shape()[1] << ", " << probs_v[0].shape()[2];
   CHECK(probs_v.size() == num_hyps) << ": is "<<  probs_v.size() << " expect: " << num_hyps;
   CHECK(r_probs_v.size() == num_hyps)<< ": is "<<  r_probs_v.size() << " expect: " << num_hyps;
 
@@ -466,6 +529,7 @@ void PaddleAsrModel::AttentionRescoring(
     // combinded left-to-right and right-to-lfet score
     (*rescoring_score)[i] =
         score * (1 - reverse_weight) + r_score * reverse_weight;
+    VLOG(1) << "hyp " << i << " score: " << score << " r_score: " << r_score << " reverse_weight: " << reverse_weight;
   }
 }
 

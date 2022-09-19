@@ -75,6 +75,20 @@ int main() {
   std::cout << "subsampling_rate: " << layer.Attribute<int>("subsampling_rate")
             << std::endl;
 
+
+  std::vector<paddle::Tensor> encoder_out_v = {
+    paddle::full({1,6,5}, 3, paddle::DataType::FLOAT32),
+    paddle::full({1,6,5}, 2, paddle::DataType::FLOAT32),
+    paddle::full({1,6,5}, 1, paddle::DataType::FLOAT32),
+ };
+ out = paddle::concat(encoder_out_v, 1);
+ 
+ float* out_ptr = out.data<float>();
+ for (int i = 0; i < out.numel(); i ++){
+    std::cout << out_ptr[i] << " ";
+ }
+
+
 #ifdef USE_PROFILING
   auto profiler_result = profiler->Stop(); 
   profiler_result->Save("main.test.prof");

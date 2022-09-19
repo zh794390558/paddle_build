@@ -213,8 +213,10 @@ void AsrDecoder::AttentionRescoring() {
   UpdateResult(true);
   // No need to do rescoring
   if (0.0 == opts_.rescoring_weight) {
+    LOG_EVERY_N(WARNING, 3) << "Not do AttentionRescoring!";
     return;
   }
+  LOG_EVERY_N(WARNING, 3) << "Do AttentionRescoring!";
 
   // Inputs() returns N-best input ids, which is the basic unit for rescoring
   // In CtcPrefixBeamSearch, inputs are the same to outputs
@@ -232,11 +234,13 @@ void AsrDecoder::AttentionRescoring() {
 
   // combine ctc score and rescoring score
   for (size_t i = 0; i < num_hyps; i++) {
+    VLOG(1) << "hyp " << i << " rescoring_score: " << rescoring_score[i] << " ctc_score: " <<  result_[i].score;
     result_[i].score = opts_.rescoring_weight * rescoring_score[i] +
                        opts_.ctc_weight * result_[i].score;
   }
 
   std::sort(result_.begin(), result_.end(), DecodeResult::CompareFunc);
+  VLOG(1) << "result: " << result_[0].sentence << " score: " << result_[0].score;
 }
 
 }  // namespace ppspeech
