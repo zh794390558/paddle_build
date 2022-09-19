@@ -86,6 +86,69 @@ int main() {
   for (int i = 0; i < out.numel(); i++) {
     std::cout << out_ptr[i] << " ";
   }
+  std::cout << std::endl;
+
+
+ {
+   std::vector<paddle::Tensor> encoder_outs;
+   
+    int feature_dim = 80;
+    int frame_num = 16 * 4 + 3;  // chunk_size * downsample_rate +
+                                 // (receptive_field - downsample_rate)
+    paddle::Tensor feats = paddle::full(
+        {1, frame_num, feature_dim}, 0.12f, paddle::DataType::FLOAT32);
+    paddle::Tensor offset = paddle::zeros({1}, paddle::DataType::INT32);
+    paddle::Tensor att_cache = paddle::zeros({0,0,0,0}, paddle::DataType::FLOAT32);
+    paddle::Tensor cnn_cache = paddle::zeros({0,0,0,0}, paddle::DataType::FLOAT32);
+    std::vector<paddle::Tensor> inputs = {
+        feats, offset, /*required_cache_size, */ att_cache, cnn_cache};
+
+
+    std::vector<paddle::Tensor> outputs = layer.Function("forward_encoder_chunk")(inputs);
+    encoder_outs.push_back(outputs[0]);
+
+    const float* out_ptr = outputs[0].data<float>();
+    std::cout << out_ptr << std::endl;
+    for (int i = 0; i < outputs[0].numel(); i++) {
+      std::cout << out_ptr[i] << " ";
+    }
+    std::cout << std::endl;
+      std::cout << std::endl;
+        std::cout << std::endl;
+
+
+
+    feats = paddle::full(
+        {1, 67, 80}, 0.32f, paddle::DataType::FLOAT32);
+    inputs = {
+        feats, offset, /*required_cache_size, */ att_cache, cnn_cache};
+    outputs = layer.Function("forward_encoder_chunk")(inputs);
+
+    out_ptr = outputs[0].data<float>();
+    std::cout << out_ptr << std::endl;
+    for (int i = 0; i < outputs[0].numel(); i++) {
+      std::cout << out_ptr[i] << " ";
+    }
+    std::cout << std::endl;
+      std::cout << std::endl;
+        std::cout << std::endl;
+
+
+    auto encoder = paddle::concat(encoder_outs, 1);
+
+    std::cout << std::endl;
+    out_ptr = encoder.data<float>();
+    std::cout << out_ptr << std::endl;
+    for (int i = 0; i < encoder.numel(); i++) {
+	    std::cout << out_ptr[i] << " ";
+	    if ( (i+1) == outputs[0].numel()){
+		    std::cout << std::endl;
+		    std::cout << std::endl;
+	    }
+    }
+ }
+
+
 
 #ifdef USE_PROFILING
   auto profiler_result = profiler->Stop();

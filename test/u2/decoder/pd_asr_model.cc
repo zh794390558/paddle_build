@@ -84,8 +84,12 @@ void PaddleAsrModel::Warmup() {
     paddle::Tensor feats = paddle::full(
         {1, frame_num, feature_dim}, 0.12f, paddle::DataType::FLOAT32);
     paddle::Tensor offset = paddle::zeros({1}, paddle::DataType::INT32);
+    paddle::Tensor att_cache =
+        paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32);
+    paddle::Tensor cnn_cache =
+        paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32);
     std::vector<paddle::Tensor> inputs = {
-        feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
+        feats, offset, /*required_cache_size, */ att_cache, cnn_cache};
     std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
 
     auto chunk_out = outputs[0];
@@ -245,8 +249,44 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   cnn_cache_ = outputs[2];
 #endif
 
+#ifdef DEUBG
+  path.str("encoder_logits");
+  auto i = offset_ - chunk_out.shape()[1];
+  path << std::max(i, 0L);
+  std::ofstream logits_fobj(path.str().c_str(), std::ios::out);
+  CHECK(logits_fobj.is_open());
+  logits_fobj << chunk_out.shape()[0] << " " << chunk_out.shape()[1] << " "
+              << chunk_out.shape()[2] << "\n";
+  const float* chunk_out_ptr = chunk_out.data<float>();
+  logits_fobj << chunk_out_ptr << std::endl;
+  for (int i = 0; i < chunk_out.numel(); i++) {
+    logits_fobj << chunk_out_ptr[i] << " ";
+  }
+  logits_fobj << "\n";
+#endif  // end DEUBG
+
   // current offset in decoder frame
   offset_ += chunk_out.shape()[1];
+
+  // collects encoder outs.
+  VLOG(1) << "encoder_outs_ size: " << encoder_outs_.size();
+  encoder_outs_.push_back(chunk_out);
+
+#ifdef DEUBG
+  path.str("encoder_logits_list");
+  path << offset_ - encoder_outs_[0].shape()[1];
+  std::ofstream logits_out_fobj(path.str().c_str(), std::ios::out);
+  CHECK(logits_out_fobj.is_open());
+  logits_out_fobj << encoder_outs_[0].shape()[0] << " "
+                  << encoder_outs_[0].shape()[1] << " "
+                  << encoder_outs_[0].shape()[2] << "\n";
+  const float* encoder_outs_ptr = encoder_outs_[0].data<float>();
+  logits_out_fobj << encoder_outs_ptr << std::endl;
+  for (int i = 0; i < encoder_outs_[0].numel(); i++) {
+    logits_out_fobj << encoder_outs_ptr[i] << " ";
+  }
+  logits_out_fobj << "\n";
+#endif  // end DEUBG
 
 #ifdef USE_GPU
 #error "Not implementation."
@@ -254,24 +294,7 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   // ctc_activation == log_softmax
   inputs.clear();
   outputs.clear();
-  inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
-
-#ifdef DEUBG
-  path.str("encoder_logits");
-  path << offset_ - chunk_out.shape()[1];
-  std::ofstream logits_fobj(path.str().c_str(), std::ios::out);
-  CHECK(logits_fobj.is_open());
-  logits_fobj << chunk_out.shape()[0] << " " << chunk_out.shape()[1] << " "
-              << chunk_out.shape()[2] << "\n";
-  const float* chunk_out_ptr = chunk_out.data<float>();
-  for (int i = 0; i < chunk_out.numel(); i++) {
-    logits_fobj << chunk_out_ptr[i] << " ";
-    if ((i + 1) % chunk_out.shape()[2] == 0) {
-      logits_fobj << "\n";
-    }
-  }
-  logits_fobj << "\n";
-#endif  // end DEUBG
+  inputs.push_back(chunk_out);
 
   outputs = ctc_activation_(inputs);
   paddle::Tensor ctc_log_probs = outputs[0];
@@ -293,9 +316,6 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   }
   logprob_fobj << "\n";
 #endif  // end DEUBG
-
-  // collects encoder outs.
-  encoder_outs_.push_back(chunk_out);
 #endif  // end USE_GPU
 
   // Copy to output, (B=1,T,D)
@@ -314,14 +334,35 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     std::memcpy(dst_ptr, src_ptr, D * sizeof(float));
   }
 
+  VLOG(1) << "out forward encoder chunk";
+
+#ifdef DEUBG
+  {
+    std::stringstream path("encoder_logits_list_ctc",
+                           std::ios_base::app | std::ios_base::out);
+    path << offset_ - encoder_outs_[0].shape()[1];
+    std::ofstream logits_out_fobj(path.str().c_str(), std::ios::out);
+    CHECK(logits_out_fobj.is_open());
+    logits_out_fobj << encoder_outs_[0].shape()[0] << " "
+                    << encoder_outs_[0].shape()[1] << " "
+                    << encoder_outs_[0].shape()[2] << "\n";
+    const float* encoder_outs_ptr = encoder_outs_[0].data<float>();
+    logits_out_fobj << encoder_outs_ptr << std::endl;
+    for (int i = 0; i < encoder_outs_[0].numel(); i++) {
+      logits_out_fobj << encoder_outs_ptr[i] << " ";
+    }
+    logits_out_fobj << "\n";
+  }
+#endif  // end DEUBG
+
   return;
 }
 
 // Debug api
 void PaddleAsrModel::FeedEncoderOuts(paddle::Tensor& encoder_out) {
-  // encoder_out (T,D)
-  encoder_outs_.clear();
-  encoder_outs_.push_back(encoder_out);
+  // // encoder_out (T,D)
+  // encoder_outs_.clear();
+  // encoder_outs_.push_back(encoder_out);
 }
 
 float PaddleAsrModel::ComputePathScore(const paddle::Tensor& prob,
@@ -392,6 +433,26 @@ void PaddleAsrModel::AttentionRescoring(
       row[j + 1] = hyp[j];
     }
   }
+
+#ifdef DEUBG
+  std::stringstream path("encoder_logits_concat",
+                         std::ios_base::app | std::ios_base::out);
+  for (int j = 0; j < encoder_outs_.size(); j++) {
+    path << j;
+    std::ofstream logits_out_fobj(path.str().c_str(), std::ios::out);
+    CHECK(logits_out_fobj.is_open());
+    logits_out_fobj << encoder_outs_[j].shape()[0] << " "
+                    << encoder_outs_[j].shape()[1] << " "
+                    << encoder_outs_[j].shape()[2] << "\n";
+    const float* encoder_outs_ptr = encoder_outs_[j].data<float>();
+    for (int i = 0; i < encoder_outs_[j].numel(); i++) {
+      logits_out_fobj << encoder_outs_ptr[i] << " ";
+    }
+    logits_out_fobj << "\n";
+  }
+
+#endif  // end DEUBG
+
   // forward attention decoder by hyps and correspoinding encoder_outs_
   paddle::Tensor encoder_out = paddle::concat(encoder_outs_, 1);
   VLOG(1) << "encoder_outs_ size: " << encoder_outs_.size();

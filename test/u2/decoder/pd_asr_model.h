@@ -63,7 +63,7 @@ class PaddleAsrModel : public AsrModelItf {
  private:
   phi::Place dev_;
   std::shared_ptr<PaddleLayer> model_ = nullptr;
-  std::vector<paddle::Tensor> encoder_outs_;
+  std::vector<paddle::Tensor> encoder_outs_{};
   // transformer/conformer attention cache
   paddle::Tensor att_cache_ = paddle::full({0, 0, 0, 0}, 0.0);
   // conformer-only conv_module cache
