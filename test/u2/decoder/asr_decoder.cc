@@ -234,13 +234,15 @@ void AsrDecoder::AttentionRescoring() {
 
   // combine ctc score and rescoring score
   for (size_t i = 0; i < num_hyps; i++) {
-    VLOG(1) << "hyp " << i << " rescoring_score: " << rescoring_score[i] << " ctc_score: " <<  result_[i].score;
+    VLOG(1) << "hyp " << i << " rescoring_score: " << rescoring_score[i]
+            << " ctc_score: " << result_[i].score;
     result_[i].score = opts_.rescoring_weight * rescoring_score[i] +
                        opts_.ctc_weight * result_[i].score;
   }
 
   std::sort(result_.begin(), result_.end(), DecodeResult::CompareFunc);
-  VLOG(1) << "result: " << result_[0].sentence << " score: " << result_[0].score;
+  VLOG(1) << "result: " << result_[0].sentence
+          << " score: " << result_[0].score;
 }
 
 }  // namespace ppspeech

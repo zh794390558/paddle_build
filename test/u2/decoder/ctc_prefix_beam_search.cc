@@ -24,8 +24,8 @@
 
 #ifdef USE_PROFILING
 #include "paddle/fluid/platform/profiler.h"
-using paddle::platform::TracerEventType;
 using paddle::platform::RecordEvent;
+using paddle::platform::TracerEventType;
 #endif
 
 namespace ppspeech {
@@ -94,7 +94,8 @@ static bool PrefixScoreCompare(
 
 void CtcPrefixBeamSearch::Search(const std::vector<std::vector<float>>& logp) {
 #ifdef USE_PROFILING
-  RecordEvent event("CtcPrefixBeamSearch::Search", TracerEventType::UserDefined, 1);
+  RecordEvent event(
+      "CtcPrefixBeamSearch::Search", TracerEventType::UserDefined, 1);
 #endif
 
   if (logp.size() == 0) return;

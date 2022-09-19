@@ -29,13 +29,13 @@
 #include "paddle/fluid/platform/profiler.h"
 #include "paddle/fluid/platform/profiler/profiler.h"
 
+using paddle::platform::EnableHostEventRecorder;
 using paddle::platform::Profiler;
 using paddle::platform::ProfilerOptions;
 using paddle::platform::ProfilerResult;
+using paddle::platform::RecordEvent;
 using paddle::platform::RecordInstantEvent;
 using paddle::platform::TracerEventType;
-using paddle::platform::RecordEvent;
-using paddle::platform::EnableHostEventRecorder;
 #endif
 
 DEFINE_bool(simulate_streaming, false, "simulate streaming input");
@@ -199,7 +199,7 @@ int main(int argc, char* argv[]) {
 
   // profiler
 #ifdef USE_PROFILING
-  auto profiler_result = profiler->Stop(); 
+  auto profiler_result = profiler->Stop();
   profiler_result->Save("decoder.main.prof");
 #endif
   return 0;

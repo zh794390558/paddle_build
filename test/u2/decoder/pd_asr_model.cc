@@ -18,18 +18,18 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
-#include <iomanip>
 
 #include "utils/log.h"
 
 #ifdef USE_PROFILING
 #include "paddle/fluid/platform/profiler.h"
-using paddle::platform::TracerEventType;
 using paddle::platform::RecordEvent;
+using paddle::platform::TracerEventType;
 #endif
 
 namespace ppspeech {
@@ -51,7 +51,7 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix) {
 
   sos_ = model_->Attribute<int>("sos_symbol");
   eos_ = model_->Attribute<int>("eos_symbol");
-  is_bidecoder_ = false; // TODO: get from property
+  is_bidecoder_ = false;  // TODO: get from property
 
   forward_encoder_chunk_ = model_->Function("forward_encoder_chunk");
   forward_attention_decoder_ = model_->Function("forward_attention_decoder");
@@ -69,24 +69,24 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix) {
   std::cout << "\tis bidecoder " << is_bidecoder_ << std::endl;
 }
 
-void PaddleAsrModel::Warmup(){
+void PaddleAsrModel::Warmup() {
 #ifdef USE_PROFILING
-    RecordEvent event("warmup", TracerEventType::UserDefined, 1);
+  RecordEvent event("warmup", TracerEventType::UserDefined, 1);
 #endif
 
   {
 #ifdef USE_PROFILING
     RecordEvent event("warmup-encoder-ctc", TracerEventType::UserDefined, 1);
 #endif
-   int feature_dim = 80;
-   int frame_num = 16*4 + 3; // chunk_size * downsample_rate + (receptive_field - downsample_rate)
+    int feature_dim = 80;
+    int frame_num = 16 * 4 + 3;  // chunk_size * downsample_rate +
+                                 // (receptive_field - downsample_rate)
     paddle::Tensor feats = paddle::full(
         {1, frame_num, feature_dim}, 0.12f, paddle::DataType::FLOAT32);
     paddle::Tensor offset = paddle::zeros({1}, paddle::DataType::INT32);
     std::vector<paddle::Tensor> inputs = {
-          feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
+        feats, offset, /*required_cache_size, */ att_cache_, cnn_cache_};
     std::vector<paddle::Tensor> outputs = forward_encoder_chunk_(inputs);
-
 
     auto chunk_out = outputs[0];
     inputs = std::move(std::vector<paddle::Tensor>({chunk_out}));
@@ -98,17 +98,18 @@ void PaddleAsrModel::Warmup(){
     RecordEvent event("warmup-decoder", TracerEventType::UserDefined, 1);
 #endif
 
-  auto hyps =
-      paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());
-  auto hyps_lens =
-      paddle::full({10}, 8, paddle::DataType::INT64, phi::CPUPlace());
-  auto encoder_out =
-      paddle::ones({1, 20, 512}, paddle::DataType::FLOAT32, phi::CPUPlace());
+    auto hyps =
+        paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());
+    auto hyps_lens =
+        paddle::full({10}, 8, paddle::DataType::INT64, phi::CPUPlace());
+    auto encoder_out =
+        paddle::ones({1, 20, 512}, paddle::DataType::FLOAT32, phi::CPUPlace());
 
     std::vector<paddle::experimental::Tensor> inputs{
         hyps, hyps_lens, encoder_out};
 
-   std::vector<paddle::experimental::Tensor> outputs = forward_attention_decoder_(inputs);
+    std::vector<paddle::experimental::Tensor> outputs =
+        forward_attention_decoder_(inputs);
   }
 
   Reset();
@@ -148,8 +149,10 @@ void PaddleAsrModel::Reset() {
   offset_ = 0;
   cached_feats_.clear();
 
-  att_cache_ = std::move(paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32));
-  cnn_cache_ = std::move(paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32));
+  att_cache_ =
+      std::move(paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32));
+  cnn_cache_ =
+      std::move(paddle::zeros({0, 0, 0, 0}, paddle::DataType::FLOAT32));
 
   encoder_outs_.clear();
 }
@@ -170,8 +173,8 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
   VLOG(3) << "feature_dim: " << feature_dim;
 
   // feats (B=1,T,D)
-  paddle::Tensor feats = paddle::zeros(
-      {1, num_frames, feature_dim}, paddle::DataType::FLOAT32);
+  paddle::Tensor feats =
+      paddle::zeros({1, num_frames, feature_dim}, paddle::DataType::FLOAT32);
   float* feats_ptr = feats.mutable_data<float>();
 
   for (size_t i = 0; i < cached_feats_.size(); ++i) {
@@ -369,8 +372,7 @@ void PaddleAsrModel::AttentionRescoring(
   }
 
   // prepare input
-  paddle::Tensor hyps_lens =
-      paddle::zeros({num_hyps}, paddle::DataType::INT64);
+  paddle::Tensor hyps_lens = paddle::zeros({num_hyps}, paddle::DataType::INT64);
   int64_t* hyps_len_ptr = hyps_lens.mutable_data<int64_t>();
   int max_hyps_len = 0;
   for (size_t i = 0; i < num_hyps; ++i) {
@@ -394,38 +396,40 @@ void PaddleAsrModel::AttentionRescoring(
   paddle::Tensor encoder_out = paddle::concat(encoder_outs_, 1);
   VLOG(1) << "encoder_outs_ size: " << encoder_outs_.size();
 #ifdef DEUBG
-{
-  std::stringstream path("encoder_out0", std::ios_base::app | std::ios_base::out);
-  std::ofstream encoder_out_fobj(path.str().c_str(), std::ios::out);
-  CHECK(encoder_out_fobj.is_open());
+  {
+    std::stringstream path("encoder_out0",
+                           std::ios_base::app | std::ios_base::out);
+    std::ofstream encoder_out_fobj(path.str().c_str(), std::ios::out);
+    CHECK(encoder_out_fobj.is_open());
 
-  encoder_out_fobj << encoder_outs_[0].shape()[0] << " " << encoder_outs_[0].shape()[1]
-               << " " << encoder_outs_[0].shape()[2] << "\n";
-  const float* enc_logprob_ptr = encoder_outs_[0].data<float>();
+    encoder_out_fobj << encoder_outs_[0].shape()[0] << " "
+                     << encoder_outs_[0].shape()[1] << " "
+                     << encoder_outs_[0].shape()[2] << "\n";
+    const float* enc_logprob_ptr = encoder_outs_[0].data<float>();
 
-  size_t size = encoder_outs_[0].numel();
-  for (int i = 0; i < size; i++) {
-    encoder_out_fobj << enc_logprob_ptr[i] << "\n";
+    size_t size = encoder_outs_[0].numel();
+    for (int i = 0; i < size; i++) {
+      encoder_out_fobj << enc_logprob_ptr[i] << "\n";
+    }
   }
-}
 #endif  // end DEUBG
 
-
 #ifdef DEUBG
-{
-  std::stringstream path("encoder_out", std::ios_base::app | std::ios_base::out);
-  std::ofstream encoder_out_fobj(path.str().c_str(), std::ios::out);
-  CHECK(encoder_out_fobj.is_open());
+  {
+    std::stringstream path("encoder_out",
+                           std::ios_base::app | std::ios_base::out);
+    std::ofstream encoder_out_fobj(path.str().c_str(), std::ios::out);
+    CHECK(encoder_out_fobj.is_open());
 
-  encoder_out_fobj << encoder_out.shape()[0] << " " << encoder_out.shape()[1]
-               << " " << encoder_out.shape()[2] << "\n";
-  const float* enc_logprob_ptr = encoder_out.data<float>();
+    encoder_out_fobj << encoder_out.shape()[0] << " " << encoder_out.shape()[1]
+                     << " " << encoder_out.shape()[2] << "\n";
+    const float* enc_logprob_ptr = encoder_out.data<float>();
 
-  size_t size = encoder_out.numel();
-  for (int i = 0; i < size; i++) {
-    encoder_out_fobj << enc_logprob_ptr[i] << "\n";
+    size_t size = encoder_out.numel();
+    for (int i = 0; i < size; i++) {
+      encoder_out_fobj << enc_logprob_ptr[i] << "\n";
+    }
   }
-}
 #endif  // end DEUBG
 
   std::vector<paddle::experimental::Tensor> inputs{
@@ -441,54 +445,56 @@ void PaddleAsrModel::AttentionRescoring(
   CHECK(probs_shape[1] == max_hyps_len);
 
 #ifdef DEUBG
-{
-  std::stringstream path("decoder_logprob", std::ios_base::app | std::ios_base::out);
-  std::ofstream dec_logprob_fobj(path.str().c_str(), std::ios::out);
-  CHECK(dec_logprob_fobj.is_open());
+  {
+    std::stringstream path("decoder_logprob",
+                           std::ios_base::app | std::ios_base::out);
+    std::ofstream dec_logprob_fobj(path.str().c_str(), std::ios::out);
+    CHECK(dec_logprob_fobj.is_open());
 
-  dec_logprob_fobj << probs.shape()[0] << " " << probs.shape()[1]
-               << " " << probs.shape()[2] << "\n";
-  const float* dec_logprob_ptr = probs.data<float>();
+    dec_logprob_fobj << probs.shape()[0] << " " << probs.shape()[1] << " "
+                     << probs.shape()[2] << "\n";
+    const float* dec_logprob_ptr = probs.data<float>();
 
-  size_t size = probs.numel();
-  for (int i = 0; i < size; i++) {
-    dec_logprob_fobj << dec_logprob_ptr[i] << "\n";
-    // if ((i + 1) % probs.shape()[2]== 0) {
-    //   dec_logprob_fobj << "\n";
-    // }
+    size_t size = probs.numel();
+    for (int i = 0; i < size; i++) {
+      dec_logprob_fobj << dec_logprob_ptr[i] << "\n";
+      // if ((i + 1) % probs.shape()[2]== 0) {
+      //   dec_logprob_fobj << "\n";
+      // }
+    }
   }
-}
 #endif  // end DEUBG
 
 #ifdef DEUBG
-{
-  std::stringstream path("hyps_lens", std::ios_base::app | std::ios_base::out);
-  std::ofstream hyps_len_fobj(path.str().c_str(), std::ios::out);
-  CHECK(hyps_len_fobj.is_open());
+  {
+    std::stringstream path("hyps_lens",
+                           std::ios_base::app | std::ios_base::out);
+    std::ofstream hyps_len_fobj(path.str().c_str(), std::ios::out);
+    CHECK(hyps_len_fobj.is_open());
 
-  const int64_t* hyps_lens_ptr = hyps_lens.data<int64_t>();
+    const int64_t* hyps_lens_ptr = hyps_lens.data<int64_t>();
 
-  size_t size = hyps_lens.numel();
-  for (int i = 0; i < size; i++) {
-    hyps_len_fobj << hyps_lens_ptr[i] << "\n";
+    size_t size = hyps_lens.numel();
+    for (int i = 0; i < size; i++) {
+      hyps_len_fobj << hyps_lens_ptr[i] << "\n";
+    }
   }
-}
 #endif  // end DEUBG
 
-
 #ifdef DEUBG
-{
-  std::stringstream path("hyps_tensor", std::ios_base::app | std::ios_base::out);
-  std::ofstream hyps_tensor_fobj(path.str().c_str(), std::ios::out);
-  CHECK(hyps_tensor_fobj.is_open());
+  {
+    std::stringstream path("hyps_tensor",
+                           std::ios_base::app | std::ios_base::out);
+    std::ofstream hyps_tensor_fobj(path.str().c_str(), std::ios::out);
+    CHECK(hyps_tensor_fobj.is_open());
 
-  const int64_t* hyps_tensor_ptr = hyps_tensor.data<int64_t>();
+    const int64_t* hyps_tensor_ptr = hyps_tensor.data<int64_t>();
 
-  size_t size = hyps_tensor.numel();
-  for (int i = 0; i < size; i++) {
-    hyps_tensor_fobj << hyps_tensor_ptr[i] << "\n";
+    size_t size = hyps_tensor.numel();
+    for (int i = 0; i < size; i++) {
+      hyps_tensor_fobj << hyps_tensor_ptr[i] << "\n";
+    }
   }
-}
 #endif  // end DEUBG
 
   // fake reverse probs
@@ -506,10 +512,14 @@ void PaddleAsrModel::AttentionRescoring(
       paddle::experimental::split_with_num(probs, num_hyps, 0);
   std::vector<paddle::Tensor> r_probs_v =
       paddle::experimental::split_with_num(r_probs, num_hyps, 0);
-  
-  VLOG(2) << "split prob: " <<  probs_v.size() <<  " " << probs_v[0].shape().size() << " 0: " << probs_v[0].shape()[0] << ", " << probs_v[0].shape()[1] << ", " << probs_v[0].shape()[2];
-  CHECK(probs_v.size() == num_hyps) << ": is "<<  probs_v.size() << " expect: " << num_hyps;
-  CHECK(r_probs_v.size() == num_hyps)<< ": is "<<  r_probs_v.size() << " expect: " << num_hyps;
+
+  VLOG(2) << "split prob: " << probs_v.size() << " "
+          << probs_v[0].shape().size() << " 0: " << probs_v[0].shape()[0]
+          << ", " << probs_v[0].shape()[1] << ", " << probs_v[0].shape()[2];
+  CHECK(probs_v.size() == num_hyps)
+      << ": is " << probs_v.size() << " expect: " << num_hyps;
+  CHECK(r_probs_v.size() == num_hyps)
+      << ": is " << r_probs_v.size() << " expect: " << num_hyps;
 
   for (size_t i = 0; i < num_hyps; ++i) {
     const std::vector<int>& hyp = hyps[i];
@@ -529,7 +539,8 @@ void PaddleAsrModel::AttentionRescoring(
     // combinded left-to-right and right-to-lfet score
     (*rescoring_score)[i] =
         score * (1 - reverse_weight) + r_score * reverse_weight;
-    VLOG(1) << "hyp " << i << " score: " << score << " r_score: " << r_score << " reverse_weight: " << reverse_weight;
+    VLOG(1) << "hyp " << i << " score: " << score << " r_score: " << r_score
+            << " reverse_weight: " << reverse_weight;
   }
 }
 

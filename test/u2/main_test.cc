@@ -11,13 +11,13 @@
 #include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/platform/profiler/profiler.h"
 
+using paddle::platform::EnableHostEventRecorder;
 using paddle::platform::Profiler;
 using paddle::platform::ProfilerOptions;
 using paddle::platform::ProfilerResult;
+using paddle::platform::RecordEvent;
 using paddle::platform::RecordInstantEvent;
 using paddle::platform::TracerEventType;
-using paddle::platform::RecordEvent;
-using paddle::platform::EnableHostEventRecorder;
 #endif
 
 int main() {
@@ -40,7 +40,7 @@ int main() {
   auto b = paddle::full({4, 5}, 3.0);
   auto out = paddle::matmul(a, b);
   std::cout << "Run End" << std::endl;
- 
+
   // load model
   auto layer =
       paddle::jit::Load("chunk_wenetspeech_static/export.jit", phi::CPUPlace());
@@ -75,22 +75,20 @@ int main() {
   std::cout << "subsampling_rate: " << layer.Attribute<int>("subsampling_rate")
             << std::endl;
 
-
   std::vector<paddle::Tensor> encoder_out_v = {
-    paddle::full({1,6,5}, 3, paddle::DataType::FLOAT32),
-    paddle::full({1,6,5}, 2, paddle::DataType::FLOAT32),
-    paddle::full({1,6,5}, 1, paddle::DataType::FLOAT32),
- };
- out = paddle::concat(encoder_out_v, 1);
- 
- float* out_ptr = out.data<float>();
- for (int i = 0; i < out.numel(); i ++){
-    std::cout << out_ptr[i] << " ";
- }
+      paddle::full({1, 6, 5}, 3, paddle::DataType::FLOAT32),
+      paddle::full({1, 6, 5}, 2, paddle::DataType::FLOAT32),
+      paddle::full({1, 6, 5}, 1, paddle::DataType::FLOAT32),
+  };
+  out = paddle::concat(encoder_out_v, 1);
 
+  float* out_ptr = out.data<float>();
+  for (int i = 0; i < out.numel(); i++) {
+    std::cout << out_ptr[i] << " ";
+  }
 
 #ifdef USE_PROFILING
-  auto profiler_result = profiler->Stop(); 
+  auto profiler_result = profiler->Stop();
   profiler_result->Save("main.test.prof");
 #endif
 }
