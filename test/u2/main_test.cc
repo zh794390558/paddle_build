@@ -43,7 +43,7 @@ int main() {
 
   // load model
   auto layer =
-      paddle::jit::Load("chunk_wenetspeech_static/export.jit", phi::CPUPlace());
+      paddle::jit::Load("asr1_chunk_conformer_wenetspeech_ckpt_1.0.0a.model/export.jit", phi::CPUPlace());
 
   auto hyps =
       paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());

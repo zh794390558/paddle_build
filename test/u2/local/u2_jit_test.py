@@ -19,7 +19,7 @@ paddle.set_device('cpu')
 
 from paddle.jit.layer import Layer
 layer = Layer()
-layer.load('chunk_wenetspeech_static/export.jit', paddle.CPUPlace())
+layer.load('asr1_chunk_conformer_wenetspeech_ckpt_1.0.0a.model/export.jit', paddle.CPUPlace())
 print(dir(layer))
 
 xs1 = paddle.full([1, 7, 80], 0.1, dtype='float32')

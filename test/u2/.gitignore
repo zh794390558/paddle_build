@@ -1,5 +1,5 @@
 build
-chunk_wenetspeech_static/
-chunk_wenetspeech_static.tar.gz
+asr1_chunk_conformer_wenetspeech_ckpt_1.0.0a.model/
+asr1_chunk_conformer_wenetspeech_ckpt_1.0.0a.model.tar.gz
 *bak*
 fc_base
