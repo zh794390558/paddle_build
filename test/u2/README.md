@@ -39,3 +39,8 @@ awk '{print $0 , " ",  NR-1}' vocab.txt
 
 ## BiDecoder or UiDecoder
 reverse_weight is 0.0 is UiDecoder, other wise is BiDecoder
+
+
+## Tracing View
+
+chrome://tracing/
