@@ -91,5 +91,5 @@ def get_link_flags():
     #    flags.append("-l:core_avx.so -l:libdnnl.so.2 -l:libiomp5.so")
     #else:
     #    flags.append("-l:core_noavx.so")
-    flags.append("-l:libpaddle.so -l:libdnnl.so.2 -l:libiomp5.so") 
+    flags.append("-l:paddle.so -l:libdnnl.so.2 -l:libiomp5.so") 
     return flags

@@ -57,7 +57,7 @@ DEFINE_double(rescoring_weight,
               1.0,
               "rescoring weight when combining ctc score and rescoring score");
 DEFINE_double(reverse_weight,
-              0.0,
+              0.3,
               "used for bitransformer rescoring. it must be 0.0 if decoder is"
               "conventional transformer decoder, and only reverse_weight > 0.0"
               "dose the right to left decoder will be calculated and used");

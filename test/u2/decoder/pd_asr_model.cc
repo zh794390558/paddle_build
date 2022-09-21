@@ -51,7 +51,7 @@ void PaddleAsrModel::Read(const std::string& model_path_w_prefix) {
 
   sos_ = model_->Attribute<int>("sos_symbol");
   eos_ = model_->Attribute<int>("eos_symbol");
-  is_bidecoder_ = false;  // TODO: get from property
+  is_bidecoder_ = model_->Attribute<int>("is_bidirectional_decoder");
 
   forward_encoder_chunk_ = model_->Function("forward_encoder_chunk");
   forward_attention_decoder_ = model_->Function("forward_attention_decoder");
@@ -323,8 +323,6 @@ void PaddleAsrModel::ForwardEncoderChunkImpl(
     std::memcpy(dst_ptr, src_ptr, D * sizeof(float));
   }
 
-  VLOG(1) << "out forward encoder chunk";
-
 #ifdef DEUBG
   {
     std::stringstream path("encoder_logits_list_ctc",
@@ -483,7 +481,7 @@ void PaddleAsrModel::AttentionRescoring(
   std::vector<paddle::experimental::Tensor> inputs{
       hyps_tensor, hyps_lens, encoder_out};
   std::vector<paddle::Tensor> outputs = forward_attention_decoder_(inputs);
-  CHECK(outputs.size() == 1);  // not support backward decoder
+  CHECK(outputs.size() == 2);
 
   // (B, Umax, V)
   paddle::Tensor probs = outputs[0];
@@ -542,10 +540,7 @@ void PaddleAsrModel::AttentionRescoring(
   }
 #endif  // end DEUBG
 
-  // fake reverse probs
-  CHECK(std::fabs(reverse_weight - 0.0f) <
-        std::numeric_limits<float>::epsilon());
-  paddle::Tensor r_probs = outputs[0];
+  paddle::Tensor r_probs = outputs[1];
   std::vector<int64_t> r_probs_shape = r_probs.shape();
   CHECK(r_probs_shape.size() == 3);
   CHECK(r_probs_shape[0] == num_hyps);

@@ -3,7 +3,7 @@
 
 int main(void) {
   ppspeech::PaddleAsrModel model;
-  model.Read("asr1_chunk_conformer_wenetspeech_ckpt_1.0.0a.model/export.jit");
+  model.Read("asr1_chunk_conformer_u2pp_wenetspeech_static_1.1.0.model/export.jit");
 
   std::vector<std::vector<float>> chunk_feats;  // [T,D=80]
   std::vector<std::vector<float>> out_prob;
