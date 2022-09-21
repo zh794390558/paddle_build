@@ -87,9 +87,5 @@ def get_link_flags():
     core_so_path = Path(paddle.__file__).parent / 'fluid'
     flags.append("-L%s" % core_so_path)
 
-    #if paddle.fluid.core.has_avx_core:
-    #    flags.append("-l:core_avx.so -l:libdnnl.so.2 -l:libiomp5.so")
-    #else:
-    #    flags.append("-l:core_noavx.so")
     flags.append("-l:paddle.so -l:libdnnl.so.2 -l:libiomp5.so") 
     return flags

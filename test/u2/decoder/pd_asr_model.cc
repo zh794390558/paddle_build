@@ -542,24 +542,33 @@ void PaddleAsrModel::AttentionRescoring(
 
   paddle::Tensor r_probs = outputs[1];
   std::vector<int64_t> r_probs_shape = r_probs.shape();
-  CHECK(r_probs_shape.size() == 3);
-  CHECK(r_probs_shape[0] == num_hyps);
-  CHECK(r_probs_shape[1] == max_hyps_len);
+  if (is_bidecoder_ && reverse_weight > 0) {
+    CHECK(r_probs_shape.size() == 3);
+    CHECK(r_probs_shape[0] == num_hyps);
+    CHECK(r_probs_shape[1] == max_hyps_len);
+  } else {
+    //dump r_probs
+    CHECK(r_probs_shape.size() == 1);
+    CHECK(r_probs_shape[0] == 1) << r_probs_shape[0];
+  }
 
   // compute rescoring score
   using IntArray = paddle::experimental::IntArray;
   std::vector<paddle::Tensor> probs_v =
       paddle::experimental::split_with_num(probs, num_hyps, 0);
-  std::vector<paddle::Tensor> r_probs_v =
-      paddle::experimental::split_with_num(r_probs, num_hyps, 0);
-
   VLOG(2) << "split prob: " << probs_v.size() << " "
           << probs_v[0].shape().size() << " 0: " << probs_v[0].shape()[0]
           << ", " << probs_v[0].shape()[1] << ", " << probs_v[0].shape()[2];
   CHECK(probs_v.size() == num_hyps)
       << ": is " << probs_v.size() << " expect: " << num_hyps;
-  CHECK(r_probs_v.size() == num_hyps)
-      << ": is " << r_probs_v.size() << " expect: " << num_hyps;
+
+  std::vector<paddle::Tensor> r_probs_v;
+  if (is_bidecoder_ && reverse_weight > 0) {
+    r_probs_v =
+        paddle::experimental::split_with_num(r_probs, num_hyps, 0);
+    CHECK(r_probs_v.size() == num_hyps)
+        << "r_probs_v size: is " << r_probs_v.size() << " expect: " << num_hyps;
+  }
 
   for (size_t i = 0; i < num_hyps; ++i) {
     const std::vector<int>& hyp = hyps[i];
