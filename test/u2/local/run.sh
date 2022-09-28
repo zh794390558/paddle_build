@@ -23,6 +23,6 @@ chunk_size=16
 	--unit_path "$model_dir/unit.txt" \
 	--cmvn_path "$model_dir/mean_std.json" \
         --result exp/wav.aishell.test.chunk16.hyp \
-	--wav_scp data/wav.aishell.test.scp
-	#--wav_scp data/wav.scp
+	--wav_scp data/wav.20.scp
+	#--wav_scp data/wav.aishell.test.scp
 	#--wav_path zh.wav 

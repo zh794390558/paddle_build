@@ -8,7 +8,7 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 option(USE_TEST "whether to build unit test" ON)
 option(USE_DEBUG "whether to build with debug" OFF)
-option(USE_PROFILING "whether to do profiling" OFF)
+option(USE_PROFILING "whether to do profiling" ON)
 
 # third party
 include(FetchContent)
