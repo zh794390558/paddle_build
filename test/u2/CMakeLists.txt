@@ -77,11 +77,11 @@ include_directories(
 
 if(USE_PROFILING)
 include_directories(
-  /workspace/Paddle
-  /workspace/Paddle/build_cuda
-  /workspace/Paddle/build_cuda/third_party/protobuf/src/extern_protobuf/src/
-  /workspace/Paddle/build_cuda/third_party/eigen3/src/extern_eigen3
-  /workspace/Paddle/build_cuda/third_party/dlpack/src/extern_dlpack/include/
+  /workspace/paddle/Paddle 
+  /workspace/paddle/Paddle/build
+  /workspace/paddle/Paddle/build/third_party/protobuf/src/extern_protobuf/src/
+  /workspace/paddle/Paddle/build/third_party/eigen3/src/extern_eigen3
+  /workspace/paddle/Paddle/build/third_party/dlpack/src/extern_dlpack/include/
 )
 endif()
 
