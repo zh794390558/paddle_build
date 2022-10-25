@@ -16,6 +16,9 @@ model_prefix=$model_dir/export
 reverse_weight=0.3
 
 chunk_size=16
+
+export DNNL_VERBOSE=0
+export OMP_NUM_THREADS=1
 ./build/decoder_main \
         --feature_pipeline_type kaldi \
         --reverse_weight $reverse_weight \

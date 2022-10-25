@@ -19,8 +19,9 @@
 #include <tuple>
 #include <unordered_map>
 #include <utility>
-
+#include <algorithm>
 #include "utils/utils.h"
+#include "utils/log.h"
 
 #ifdef USE_PROFILING
 #include "paddle/fluid/platform/profiler.h"
@@ -111,6 +112,10 @@ void CtcPrefixBeamSearch::Search(const std::vector<std::vector<float>>& logp) {
     std::vector<float> topk_score;
     std::vector<int32_t> topk_index;
     TopK(logp_t, first_beam_size, &topk_score, &topk_index);
+    VLOG(1) << "topk: " << abs_time_step_ << " " <<  *std::max_element(logp_t.begin(), logp_t.end()) << " " << topk_score[0];
+        for (int i = 0; i < topk_score.size(); i++){
+             VLOG(1) << "topk: " << abs_time_step_ << " " << topk_score[i];
+        }
 
     // 2. token passing
     for (int i = 0; i < topk_index.size(); ++i) {
@@ -262,7 +267,18 @@ void CtcPrefixBeamSearch::UpdateOutputs(
   outputs_.emplace_back(output);
 }
 
-void CtcPrefixBeamSearch::FinalizeSearch() { UpdateFinalContext(); }
+void CtcPrefixBeamSearch::FinalizeSearch() { UpdateFinalContext(); 
+
+    int cnt = 0;
+    for (int i = 0; i < hypotheses_.size(); i ++){
+        VLOG(1) << "hyp " << cnt;
+        VLOG(1) << "ctc score: " << likelihood_[i];
+        VLOG(1) << "len: " << hypotheses_[i].size();
+        for (int j = 0; j < hypotheses_[i].size(); j ++){
+            VLOG(1) <<  hypotheses_[i][j];
+        }
+    }
+}
 
 void CtcPrefixBeamSearch::UpdateFinalContext() {
   if (context_graph_ == nullptr) return;

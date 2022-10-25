@@ -10,6 +10,9 @@ export LD_LIBRARY_PATH=/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-p
 
 model_dir=asr1_chunk_conformer_u2pp_wenetspeech_static_1.1.0.model
 reverse_weight=0.3
+
+export DNNL_VERBOSE=0
+export OMP_NUM_THREADS=1
 ./build/decoder_main \
         --feature_pipeline_type kaldi \
         --reverse_weight $reverse_weight \
