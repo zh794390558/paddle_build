@@ -11,7 +11,7 @@ export LD_LIBRARY_PATH=/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-p
 #reverse_weight=0.0
 
 #model_dir=asr1_chunk_conformer_u2pp_wenetspeech_static_1.1.0.model
-model_dir=asr1_chunk_conformer_u2pp_wenetspeech_static_quant_1.1.0.model/
+model_dir=asr1_chunk_conformer_u2pp_wenetspeech_static_quant_1.3.0.model/
 model_prefix=$model_dir/export
 reverse_weight=0.3
 
@@ -27,7 +27,7 @@ export OMP_NUM_THREADS=1
 	--model_path $model_prefix \
 	--unit_path "$model_dir/unit.txt" \
 	--cmvn_path "$model_dir/mean_std.json" \
-        --result exp/wav.aishell.test.chunk16.hyp \
-	--wav_scp data/wav.20.scp
-	#--wav_scp data/wav.aishell.test.scp
+        --result exp/wav.aishell.test.chunk16.quant.hyp \
+	--wav_scp data/wav.aishell.test.scp
+	#--wav_scp data/wav.20.scp
 	#--wav_path zh.wav 
