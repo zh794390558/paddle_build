@@ -109,10 +109,10 @@ void PaddleAsrModel::Warmup() {
     auto encoder_out =
         paddle::ones({1, 20, 512}, paddle::DataType::FLOAT32, phi::CPUPlace());
 
-    std::vector<paddle::experimental::Tensor> inputs{
+    std::vector<paddle::Tensor> inputs{
         hyps, hyps_lens, encoder_out};
 
-    std::vector<paddle::experimental::Tensor> outputs =
+    std::vector<paddle::Tensor> outputs =
         forward_attention_decoder_(inputs);
   }
 
@@ -478,7 +478,7 @@ void PaddleAsrModel::AttentionRescoring(
   }
 #endif  // end DEUBG
 
-  std::vector<paddle::experimental::Tensor> inputs{
+  std::vector<paddle::Tensor> inputs{
       hyps_tensor, hyps_lens, encoder_out};
   std::vector<paddle::Tensor> outputs = forward_attention_decoder_(inputs);
   CHECK(outputs.size() == 2);

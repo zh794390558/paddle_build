@@ -3,7 +3,9 @@
 set -x
 set -e
 
-export LD_LIBRARY_PATH=/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/DeepSpeech-2.x/tools/venv/lib/python3.7/site-packages/paddle/libs/:$LD_LIBRARY_PATH
+
+venv=/workspace/zhanghui/Paddle/paddle_build/venv
+export LD_LIBRARY_PATH=$venv/lib/python3.7/site-packages/paddle/fluid:$venv/lib/python3.7/site-packages/paddle/libs/:$LD_LIBRARY_PATH
 
 
 # FLAG_logbuflevel=-1 GLOG_logtostderr=1 GLOG_v=3 ./run.sh 
@@ -21,9 +23,10 @@ export DNNL_VERBOSE=0
 export OMP_NUM_THREADS=1
 ./build/decoder_main \
         --feature_pipeline_type kaldi \
-        --reverse_weight $reverse_weight \
         --chunk_size $chunk_size \
         --rescoring_weight 1.0 \
+        --ctc_weight 0.5 \
+        --reverse_weight $reverse_weight \
 	--model_path $model_prefix \
 	--unit_path "$model_dir/unit.txt" \
 	--cmvn_path "$model_dir/mean_std.json" \
