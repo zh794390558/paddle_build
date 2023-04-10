@@ -41,9 +41,11 @@ endif()
 
 # reruied packages
 find_package(Threads REQUIRED)
-find_package (PythonLibs REQUIRED)
-find_package (Python3 REQUIRED)
+find_package (Python3  COMPONENTS Interpreter Development)
 find_package(pybind11 CONFIG)
+
+set(PYTHON_LIBRARIES ${Python3_LIBRARIES} CACHE STRING "python lib" FORCE)
+set(PYTHON_INCLUDE_DIR ${Python3_INCLUDE_DIRS} CACHE STRING "python inc" FORCE)
 
 message(STATUS "PYTHON_LIBRARIES = ${PYTHON_LIBRARIES}")
 message(STATUS "Python3_EXECUTABLE = ${Python3_EXECUTABLE}")
