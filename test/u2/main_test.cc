@@ -43,7 +43,8 @@ int main() {
 
   // load model
   auto layer =
-      paddle::jit::Load("asr1_chunk_conformer_u2pp_wenetspeech_static_1.1.0.model/export.jit", phi::CPUPlace());
+      paddle::jit::Load("asr1_chunk_conformer_u2pp_wenetspeech_static_quant_1.3.0.model/export", phi::CPUPlace());
+  std::cout << "load model" << std::endl;
 
   auto hyps =
       paddle::full({10, 8}, 10, paddle::DataType::INT64, phi::CPUPlace());

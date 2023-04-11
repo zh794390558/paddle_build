@@ -3,7 +3,7 @@
 set -x
 set -e
 
-env_dir=/workspace/zhanghui/Paddle/paddle_build
+env_dir=/workspace/zhanghui/paddle_build
 export LD_LIBRARY_PATH=$env_dir/venv/lib/python3.7/site-packages/paddle/fluid:$env_dir/venv/lib/python3.7/site-packages/paddle/libs/:$LD_LIBRARY_PATH
 
 
@@ -12,7 +12,7 @@ export LD_LIBRARY_PATH=$env_dir/venv/lib/python3.7/site-packages/paddle/fluid:$e
 #model_dir=asr1_chunk_conformer_u2_wenetspeech_static_1.1.0.model
 #reverse_weight=0.0
 
-model_dir=asr1_chunk_conformer_u2pp_wenetspeech_static_1.1.0.model
+model_dir=asr1_chunk_conformer_u2pp_wenetspeech_static_1.3.0.model
 reverse_weight=0.3
 
 chunk_size=16

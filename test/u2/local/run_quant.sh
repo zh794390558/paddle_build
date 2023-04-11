@@ -4,7 +4,7 @@ set -x
 set -e
 
 
-venv=/workspace/zhanghui/Paddle/paddle_build/venv
+venv=/workspace/zhanghui/paddle_build/venv
 export LD_LIBRARY_PATH=$venv/lib/python3.7/site-packages/paddle/fluid:$venv/lib/python3.7/site-packages/paddle/libs/:$LD_LIBRARY_PATH
 
 

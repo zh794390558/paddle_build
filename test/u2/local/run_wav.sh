@@ -2,6 +2,8 @@
 
 set -e
 
+export LD_LIBRARY_PATH=/workspace/zhanghui/paddle_build/venv/lib/python3.7/site-packages/paddle/fluid:/workspace/zhanghui/paddle_build/venv/lib/python3.7/site-packages/paddle/libs/:/usr/local/cuda-11.2/targets/x86_64-linux/lib:/usr/local/nvidia/lib:/usr/local/nvidia/lib64
+
 # FLAG_logbuflevel=-1 GLOG_logtostderr=1 GLOG_v=3 ./run.sh 
 #model_dir=asr1_chunk_conformer_u2_wenetspeech_static_1.1.0.model
 #reverse_weight=0.0
