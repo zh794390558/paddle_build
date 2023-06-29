@@ -77,13 +77,35 @@ inline int64_t RoundUpPowerOfTwo(int64_t n) {
 namespace kps {
 namespace details {
 
+// Aligned vector generates vectorized load/store on CUDA.
 template <typename T, int VecSize>
-struct alignas(sizeof(T) * VecSize) VectorType {
+struct alignas(sizeof(T) * VecSize) AlignedVector {
   T val[VecSize];
+
+  HOSTDEVICE inline const T& operator[](int i) const { return val[i]; }
+  HOSTDEVICE inline T& operator[](int i) { return val[i]; }
 };
 
+// vectoried load to vec from addr
 template <typename T, int VecSize>
-using AlignedVector = VectorType<T, VecSize>;
+HOSTDEVICE inline void Load(const T* addr, AlignedVector<T, VecSize>* vec) {
+
+  const AlignedVector<T, VecSize>* addr_vec =
+      reinterpret_cast<const AlignedVector<T, VecSize>*>(addr);
+  *vec = *addr_vec;
+}
+
+// vectoried save to addr from vec
+template <typename T, int VecSize>
+HOSTDEVICE inline void Store(const AlignedVector<T, VecSize>& vec, T* addr) {
+
+  AlignedVector<T, VecSize>* addr_vec =
+      reinterpret_cast<AlignedVector<T, VecSize>*>(addr);
+  *addr_vec = vec;
+}
+
+template <typename T, int VecSize>
+using VectorType = AlignedVector<T, VecSize>;
 
 /*
  * Only the address of input data is the multiplier of 1,2,4, vectorized load
