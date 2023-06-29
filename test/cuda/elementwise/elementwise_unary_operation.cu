@@ -49,7 +49,6 @@
 #define HOST
 #endif
 
-
 template <typename T = int64_t> inline T DivUp(const T &a, const T &b) {
   return (a + b - 1) / b;
 }
@@ -73,7 +72,6 @@ inline int64_t RoundUpPowerOfTwo(int64_t n) {
   return std::min(num, max_val);
 }
 
-
 namespace kps {
 namespace details {
 
@@ -82,39 +80,38 @@ template <typename T, int VecSize>
 struct alignas(sizeof(T) * VecSize) AlignedVector {
   T val[VecSize];
 
-  HOSTDEVICE inline const T& operator[](int i) const { return val[i]; }
-  HOSTDEVICE inline T& operator[](int i) { return val[i]; }
+  HOSTDEVICE inline const T &operator[](int i) const { return val[i]; }
+  HOSTDEVICE inline T &operator[](int i) { return val[i]; }
 };
 
 // vectoried load to vec from addr
 template <typename T, int VecSize>
-HOSTDEVICE inline void Load(const T* addr, AlignedVector<T, VecSize>* vec) {
+HOSTDEVICE inline void Load(const T *addr, AlignedVector<T, VecSize> *vec) {
 
-  const AlignedVector<T, VecSize>* addr_vec =
-      reinterpret_cast<const AlignedVector<T, VecSize>*>(addr);
+  const AlignedVector<T, VecSize> *addr_vec =
+      reinterpret_cast<const AlignedVector<T, VecSize> *>(addr);
   *vec = *addr_vec;
 }
 
 // vectoried save to addr from vec
 template <typename T, int VecSize>
-HOSTDEVICE inline void Store(const AlignedVector<T, VecSize>& vec, T* addr) {
+HOSTDEVICE inline void Store(const AlignedVector<T, VecSize> &vec, T *addr) {
 
-  AlignedVector<T, VecSize>* addr_vec =
-      reinterpret_cast<AlignedVector<T, VecSize>*>(addr);
+  AlignedVector<T, VecSize> *addr_vec =
+      reinterpret_cast<AlignedVector<T, VecSize> *>(addr);
   *addr_vec = vec;
 }
 
-template <typename T, int VecSize>
-using VectorType = AlignedVector<T, VecSize>;
+template <typename T, int VecSize> using VectorType = AlignedVector<T, VecSize>;
 
 /*
  * Only the address of input data is the multiplier of 1,2,4, vectorized load
  * with corresponding multiplier-value is possible. Moreover, the maximum length
  * of vectorized load is `128 bits` (16 bytes, 4 float, 2 double) once.
- * Hence, valid length of vectorized load shall be determined under both former constraints.
+ * Hence, valid length of vectorized load shall be determined under both former
+ * constraints.
  */
-template <typename T>
-int GetVectorizedSize(const T* pointer){
+template <typename T> int GetVectorizedSize(const T *pointer) {
   constexpr int max_load_bits = 128;
   // valid elements num of T, e.g float=4, double=2, char=16
   constexpr int valid_vec_size = max_load_bits / CHAR_BIT / sizeof(T);
@@ -127,7 +124,7 @@ int GetVectorizedSize(const T* pointer){
   constexpr int vec4 = std::alignment_of<AlignedVector<T, 4>>::value;
   // (float,  8), (double, 16)
   constexpr int vec2 = std::alignment_of<AlignedVector<T, 2>>::value;
-  
+
   /*
   * Currently, decide to deal with no more than 4 data once while adopting
   * vectorization load/store, if performance test shows that dealing with
@@ -136,15 +133,14 @@ int GetVectorizedSize(const T* pointer){
     if (address % vec8 == 0) {
       return std::min(8, valid_vec_size);
   */
-  if (address % vec4 == 0){
+  if (address % vec4 == 0) {
     return std::min(4, valid_vec_size);
-  } else if (address % vec2 == 0){
+  } else if (address % vec2 == 0) {
     return std::min(2, valid_vec_size);
   } else {
     return 1;
   }
 }
-
 
 /**
  * Fast division : Replace division in CUDA with multiplication to improve
@@ -218,7 +214,8 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
  *
  * @template paraments
  * T: Data type of register.
- * NX: Number of data to initialize. vector size. Elements processed by one thread.
+ * NX: Number of data to initialize. vector size. Elements processed by one
+ * thread.
  *
  * @param：
  * dst: The register pointer of the thread, the size is NX.
@@ -404,7 +401,6 @@ __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src, int num,
 
 } // namespace kps
 
-
 template <typename T, int VecSize> struct Loader {
 
   static __device__ void Apply(T *args, const T *in, int64_t offset, int num,
@@ -454,8 +450,8 @@ __device__ void VectorizedElementwiseKernelImpl(const T *in, T *out,
   // load to register
   Loader<T, VecSize>::Apply(ins_reg, in, offset, num, read_lens, IsBoundary);
   // compute in register
-  SameDimsElementwisePrimitiveCaller<T, VecSize, Functor>()(func, ins_reg, outs_reg,
-                                                            read_lens);
+  SameDimsElementwisePrimitiveCaller<T, VecSize, Functor>()(
+      func, ins_reg, outs_reg, read_lens);
   // save back to global mem
   ElementwiseWriteDataCallerBc<T, VecSize, IsBoundary>()(out, outs_reg, offset,
                                                          num, read_lens);
@@ -535,9 +531,6 @@ void ElementwiseKernel(T *out, const T *in, int64_t numel, Functor func,
   }
 }
 
-
-
-
 #define CHECK_CUDA_ERROR(val) checkCuda((val), #val, __FILE__, __LINE__)
 template <typename T>
 void checkCuda(T err, const char *const func, const char *const file,
@@ -602,13 +595,13 @@ bool AllClose(const std::vector<T> &vec_1, const std::vector<T> &vec_2,
 
 // kernel preformance measure
 template <typename T>
-float MeasurePerformance(std::function<T(cudaStream_t&)> bound_function,
-                         cudaStream_t& stream, int num_repeats = 100,
+float MeasurePerformance(std::function<T(cudaStream_t &)> bound_function,
+                         cudaStream_t &stream, int num_repeats = 100,
                          int num_warmups = 100) {
   cudaEvent_t start, stop;
   float time;
 
-  // create 
+  // create
   CHECK_CUDA_ERROR(cudaEventCreate(&start));
   CHECK_CUDA_ERROR(cudaEventCreate(&stop));
 
@@ -658,7 +651,6 @@ template <typename T> struct LogFunctor {
   HOSTDEVICE inline T operator()(const T &a) const { return ::log(a); }
 };
 
-
 int main(void) {
   // unary function
   using Functor = LogFunctor<float>;
@@ -698,7 +690,7 @@ int main(void) {
 
   // vector size for simd
   constexpr uint32_t vecsize = 4;
-  std::function<void(cudaStream_t&)> const function{
+  std::function<void(cudaStream_t &)> const function{
       std::bind(ElementwiseKernel<float, Functor, vecsize>, d_output, d_input,
                 n, Functor(), std::placeholders::_1)};
   // St8functionIFvRP11CUstream_stEE
