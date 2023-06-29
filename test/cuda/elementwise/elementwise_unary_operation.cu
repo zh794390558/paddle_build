@@ -36,6 +36,9 @@
 #define VecSizeM 2
 #define VecSizeS 1
 
+// CUDA performs better when `thread_per_block` is between [64, 512]
+#define BLOCK_SIZE 512
+
 #if (defined(__CUDACC__) || defined(__HIPCC__) || defined(__xpu__))
 #define HOSTDEVICE __host__ __device__
 #define DEVICE __device__
@@ -46,36 +49,6 @@
 #define HOST
 #endif
 
-#define CHECK_CUDA_ERROR(val) checkCuda((val), #val, __FILE__, __LINE__)
-template <typename T>
-void checkCuda(T err, const char *const func, const char *const file,
-               const int line) {
-  if (err != cudaSuccess) {
-    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
-    std::cerr << cudaGetErrorString(err) << " " << func << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-}
-
-#define CHECK_LAST_CUDA_ERROR(val) checkCudaLast(__FILE__, __LINE__)
-void checkCudaLast(const char *const file, const int line) {
-  cudaError_t err{cudaGetLastError()};
-  if (err != cudaSuccess) {
-    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
-    std::cerr << cudaGetErrorString(err) << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-}
-
-#define CHECK_CUBLAS_ERROR(val) checkCuBlas((val), #val, __FILE__, __LINE__)
-template <typename T>
-void checkCuBlas(T err, const char *const func, const char *const file,
-                 const int line) {
-  if (err != CUBLAS_STATUS_SUCCESS) {
-    std::cerr << "cuBlas Runtime Error at: " << file << ":" << line;
-    std::exit(EXIT_FAILURE);
-  }
-}
 
 template <typename T = int64_t> inline T DivUp(const T &a, const T &b) {
   return (a + b - 1) / b;
@@ -100,6 +73,7 @@ inline int64_t RoundUpPowerOfTwo(int64_t n) {
   return std::min(num, max_val);
 }
 
+
 namespace kps {
 namespace details {
 
@@ -107,6 +81,48 @@ template <typename T, int VecSize>
 struct alignas(sizeof(T) * VecSize) VectorType {
   T val[VecSize];
 };
+
+template <typename T, int VecSize>
+using AlignedVector = VectorType<T, VecSize>;
+
+/*
+ * Only the address of input data is the multiplier of 1,2,4, vectorized load
+ * with corresponding multiplier-value is possible. Moreover, the maximum length
+ * of vectorized load is `128 bits` (16 bytes, 4 float, 2 double) once.
+ * Hence, valid length of vectorized load shall be determined under both former constraints.
+ */
+template <typename T>
+int GetVectorizedSize(const T* pointer){
+  constexpr int max_load_bits = 128;
+  // valid elements num of T, e.g float=4, double=2, char=16
+  constexpr int valid_vec_size = max_load_bits / CHAR_BIT / sizeof(T);
+
+  uint64_t address = reinterpret_cast<int64_t>(pointer);
+
+  // (float, 32), (double, 64)
+  constexpr int vec8 = std::alignment_of<AlignedVector<T, 8>>::value;
+  // (float, 16), (double, 32)
+  constexpr int vec4 = std::alignment_of<AlignedVector<T, 4>>::value;
+  // (float,  8), (double, 16)
+  constexpr int vec2 = std::alignment_of<AlignedVector<T, 2>>::value;
+  
+  /*
+  * Currently, decide to deal with no more than 4 data once while adopting
+  * vectorization load/store, if performance test shows that dealing with
+  * 8 data once in vectorization load/store does get optimized, code below
+  * can begin with :
+    if (address % vec8 == 0) {
+      return std::min(8, valid_vec_size);
+  */
+  if (address % vec4 == 0){
+    return std::min(4, valid_vec_size);
+  } else if (address % vec2 == 0){
+    return std::min(2, valid_vec_size);
+  } else {
+    return 1;
+  }
+}
+
 
 /**
  * Fast division : Replace division in CUDA with multiplication to improve
@@ -180,11 +196,12 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
  *
  * @template paraments
  * T: Data type of register.
- * NX: Number of data to initialize.
+ * NX: Number of data to initialize. vector size. Elements processed by one thread.
  *
  * @param：
  * dst: The register pointer of the thread, the size is NX.
  * init_data: Initial value.
+ * read_lens: not used.
  */
 template <typename T, int NX>
 __device__ __forceinline__ void Init(T *dst, T init_data) {
@@ -221,6 +238,7 @@ __device__ __forceinline__ void Init(T *dst, T init_data, int read_lens) {
  * dst: The register pointer of the thread, the size is NX * NY.
  * src: The data pointer of the current block.
  * size: The current block needs to load size data continuously.
+ * read_lens: not used.
  */
 template <typename T, int NX, int NY, bool IsBoundary = false>
 __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
@@ -234,6 +252,7 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
       }
     }
   } else { // blockDim,x * NX < num
+    // kVectorSize in (4, 2, 1)
     constexpr int kVectorSize = (NX % 4 == 0) ? 4 : (NX % 2 == 0) ? 2 : 1;
     constexpr int kVectorsPerThread = NX / kVectorSize;
     int thread_offset = threadIdx.x * kVectorsPerThread;
@@ -303,6 +322,7 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
  * dst: The data pointer of the current block.
  * src: The register pointer, the size is NX * NY.
  * size: The current block needs to load size elements continuously.
+ * read_lens: not used
  */
 template <typename T, int NX, int NY, bool IsBoundary = false>
 __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src,
@@ -362,6 +382,7 @@ __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src, int num,
 
 } // namespace kps
 
+
 template <typename T, int VecSize> struct Loader {
 
   static __device__ void Apply(T *args, const T *in, int64_t offset, int num,
@@ -405,16 +426,16 @@ __device__ void VectorizedElementwiseKernelImpl(const T *in, T *out,
                                                 int64_t offset, int num,
                                                 int read_lens, Functor func) {
 
-  T args[VecSize];
-  T result[VecSize];
+  T ins_reg[VecSize];
+  T outs_reg[VecSize];
 
-  // load
-  Loader<T, VecSize>::Apply(args, in, offset, num, read_lens, IsBoundary);
-  // compute
-  SameDimsElementwisePrimitiveCaller<T, VecSize, Functor>()(func, args, result,
+  // load to register
+  Loader<T, VecSize>::Apply(ins_reg, in, offset, num, read_lens, IsBoundary);
+  // compute in register
+  SameDimsElementwisePrimitiveCaller<T, VecSize, Functor>()(func, ins_reg, outs_reg,
                                                             read_lens);
-  // save
-  ElementwiseWriteDataCallerBc<T, VecSize, IsBoundary>()(out, result, offset,
+  // save back to global mem
+  ElementwiseWriteDataCallerBc<T, VecSize, IsBoundary>()(out, outs_reg, offset,
                                                          num, read_lens);
 }
 
@@ -447,8 +468,10 @@ __global__ void VectorizedElementwiseKernel(const T *in, T *out, int64_t numel,
 template <typename T, typename Functor, int VecSize = 4>
 void LaunchElementwiseCudaKernel(T *out, const T *in, int64_t numel,
                                  Functor func, cudaStream_t &stream) {
-  dim3 thread_per_block = dim3(512, 1, 1);
+  dim3 thread_per_block = dim3(1, 1, 1);
   dim3 block_per_grid = dim3(1, 1, 1);
+
+  thread_per_block.x = BLOCK_SIZE; // 512
 
   auto elems_per_block = VecSize * thread_per_block.x;
 
@@ -490,6 +513,41 @@ void ElementwiseKernel(T *out, const T *in, int64_t numel, Functor func,
   }
 }
 
+
+
+
+#define CHECK_CUDA_ERROR(val) checkCuda((val), #val, __FILE__, __LINE__)
+template <typename T>
+void checkCuda(T err, const char *const func, const char *const file,
+               const int line) {
+  if (err != cudaSuccess) {
+    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
+    std::cerr << cudaGetErrorString(err) << " " << func << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+#define CHECK_LAST_CUDA_ERROR(val) checkCudaLast(__FILE__, __LINE__)
+void checkCudaLast(const char *const file, const int line) {
+  cudaError_t err{cudaGetLastError()};
+  if (err != cudaSuccess) {
+    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
+    std::cerr << cudaGetErrorString(err) << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+#define CHECK_CUBLAS_ERROR(val) checkCuBlas((val), #val, __FILE__, __LINE__)
+template <typename T>
+void checkCuBlas(T err, const char *const func, const char *const file,
+                 const int line) {
+  if (err != CUBLAS_STATUS_SUCCESS) {
+    std::cerr << "cuBlas Runtime Error at: " << file << ":" << line;
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+// create random vec
 template <typename T> std::vector<T> CreateRandomVector(size_t n) {
   std::random_device r;
   std::default_random_engine e(r());
@@ -502,6 +560,7 @@ template <typename T> std::vector<T> CreateRandomVector(size_t n) {
   return vec;
 }
 
+// All Close assert
 template <typename T>
 bool AllClose(const std::vector<T> &vec_1, const std::vector<T> &vec_2,
               const T &abs_tol) {
@@ -519,34 +578,37 @@ bool AllClose(const std::vector<T> &vec_1, const std::vector<T> &vec_2,
   return true;
 }
 
+// kernel preformance measure
 template <typename T>
-float MeasurePerformance(std::function<T(void)> bound_function,
-                         cudaStream_t stream, int num_repeats = 100,
+float MeasurePerformance(std::function<T(cudaStream_t&)> bound_function,
+                         cudaStream_t& stream, int num_repeats = 100,
                          int num_warmups = 100) {
   cudaEvent_t start, stop;
   float time;
 
+  // create 
   CHECK_CUDA_ERROR(cudaEventCreate(&start));
   CHECK_CUDA_ERROR(cudaEventCreate(&stop));
 
   // warmup
   for (int i{0}; i < num_warmups; ++i) {
-    bound_function();
+    bound_function(stream);
   }
   CHECK_CUDA_ERROR(cudaStreamSynchronize(stream));
 
   // do it
   CHECK_CUDA_ERROR(cudaEventRecord(start, stream));
   for (int i{0}; i < num_repeats; ++i) {
-    bound_function();
+    bound_function(stream);
   }
   CHECK_CUDA_ERROR(cudaEventRecord(stop, stream));
   CHECK_CUDA_ERROR(cudaEventSynchronize(stop));
-
   CHECK_LAST_CUDA_ERROR();
 
+  // compute elapsed time
   CHECK_CUDA_ERROR(cudaEventElapsedTime(&time, start, stop));
 
+  // destory
   CHECK_CUDA_ERROR(cudaEventDestroy(start));
   CHECK_CUDA_ERROR(cudaEventDestroy(stop));
 
@@ -559,6 +621,7 @@ void PrintLatency(float latency) {
             << " ms" << std::endl;
 }
 
+// apply functor on host
 template <typename T, typename Functor>
 void ApplyFunctorHost(const std::vector<T> &in, std::vector<T> *out,
                       Functor func) {
@@ -568,9 +631,11 @@ void ApplyFunctorHost(const std::vector<T> &in, std::vector<T> *out,
   }
 }
 
+// functors
 template <typename T> struct LogFunctor {
   HOSTDEVICE inline T operator()(const T &a) const { return ::log(a); }
 };
+
 
 int main(void) {
   // unary function
@@ -589,6 +654,7 @@ int main(void) {
   constexpr uint32_t num_repeats{100};
   constexpr uint32_t num_warmups{10};
 
+  // output mem
   std::vector<float> vec_out(n);
 
   const float *h_input{vec_in.data()};
@@ -597,33 +663,37 @@ int main(void) {
   float *d_input{nullptr};
   float *d_output{nullptr};
 
+  // malloc device memory
   CHECK_CUDA_ERROR(cudaMalloc(&d_input, n * sizeof(float)));
   CHECK_CUDA_ERROR(cudaMalloc(&d_output, n * sizeof(float)));
-
+  // copy memory to device
   CHECK_CUDA_ERROR(
       cudaMemcpy(d_input, h_input, sizeof(float) * n, cudaMemcpyHostToDevice));
 
+  // create stream
   cudaStream_t stream;
   CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
 
+  // vector size for simd
   constexpr uint32_t vecsize = 4;
-
-  std::function<void(void)> const function{
+  std::function<void(cudaStream_t&)> const function{
       std::bind(ElementwiseKernel<float, Functor, vecsize>, d_output, d_input,
-                n, Functor(), stream)};
-
-  std::cout << typeid(function).name() << std::endl;
+                n, Functor(), std::placeholders::_1)};
+  // St8functionIFvRP11CUstream_stEE
+  // std::cout << typeid(function).name() << std::endl;
 
   float const latency{
       MeasurePerformance(function, stream, num_repeats, num_warmups)};
   PrintLatency(latency);
 
+  // copy result to cpu
   CHECK_CUDA_ERROR(cudaMemcpy(h_output, d_output, sizeof(float) * n,
                               cudaMemcpyDeviceToHost));
 
   // check result
   assert(AllClose<float>(vec_out_host, vec_out, 1e-4));
 
+  // free mem and stream obj
   CHECK_CUDA_ERROR(cudaFree(d_input));
   CHECK_CUDA_ERROR(cudaFree(d_output));
   CHECK_CUDA_ERROR(cudaStreamDestroy(stream));
