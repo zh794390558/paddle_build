@@ -49,27 +49,35 @@
 #define HOST
 #endif
 
-template <typename T = int64_t> inline T DivUp(const T &a, const T &b) {
-  return (a + b - 1) / b;
+#define CHECK_CUDA_ERROR(val) checkCuda((val), #val, __FILE__, __LINE__)
+template <typename T>
+void checkCuda(T err, const char *const func, const char *const file,
+               const int line) {
+  if (err != cudaSuccess) {
+    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
+    std::cerr << cudaGetErrorString(err) << " " << func << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
 }
 
-// round integer value into next highest power of 2.
-// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-inline int64_t RoundUpToPowOfTwo(int64_t n, int64_t min_val = 1) {
-  n--;
-  n |= (n >> 1);
-  n |= (n >> 2);
-  n |= (n >> 4);
-  n |= (n >> 8);
-  n |= (n >> 16);
-  return std::max(min_val, (n + 1));
+#define CHECK_LAST_CUDA_ERROR(val) checkCudaLast(__FILE__, __LINE__)
+void checkCudaLast(const char *const file, const int line) {
+  cudaError_t err{cudaGetLastError()};
+  if (err != cudaSuccess) {
+    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
+    std::cerr << cudaGetErrorString(err) << std::endl;
+    std::exit(EXIT_FAILURE);
+  }
 }
 
-inline int64_t RoundUpPowerOfTwo(int64_t n) {
-  constexpr int64_t min_val = 32;
-  constexpr int64_t max_val = 1024;
-  int64_t num = RoundUpToPowOfTwo(n, min_val);
-  return std::min(num, max_val);
+#define CHECK_CUBLAS_ERROR(val) checkCuBlas((val), #val, __FILE__, __LINE__)
+template <typename T>
+void checkCuBlas(T err, const char *const func, const char *const file,
+                 const int line) {
+  if (err != CUBLAS_STATUS_SUCCESS) {
+    std::cerr << "cuBlas Runtime Error at: " << file << ":" << line;
+    std::exit(EXIT_FAILURE);
+  }
 }
 
 namespace kps {
@@ -142,12 +150,38 @@ template <typename T> int GetVectorizedSize(const T *pointer) {
   }
 }
 
+template <typename T = int64_t> inline T DivUp(const T &a, const T &b) {
+  return (a + b - 1) / b;
+}
+
+// round integer value into next highest power of 2.
+// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+inline int64_t RoundUpToPowOfTwo(int64_t n, int64_t min_val = 1) {
+  n--;
+  n |= (n >> 1);
+  n |= (n >> 2);
+  n |= (n >> 4);
+  n |= (n >> 8);
+  n |= (n >> 16);
+  return std::max(min_val, (n + 1));
+}
+
+inline int64_t RoundUpPowerOfTwo(int64_t n) {
+  constexpr int64_t min_val = 32;
+  constexpr int64_t max_val = 1024;
+  int64_t num = RoundUpToPowOfTwo(n, min_val);
+  return std::min(num, max_val);
+}
+
 /**
  * Fast division : Replace division in CUDA with multiplication to improve
  * kernel performance.
  * 1. Complete the division calculation on the CPU, and record the calculation
- * results by using the divider and shift_val.
- * 2. Set the divisor on the GPU through Div() to complete the calculation.
+ * results by using the `divider` and `shift_val`.
+ * 2. Set the `divisor` on the GPU through Div() to complete the calculation.
+ * 
+ * 参看：   OffsetInfo：https://www.52coding.com.cn/2019/05/05/PyTorch2/
+ * 推导见： http://ridiculousfish.com/blog/posts/labor-of-division-episode-i.html
  */
 #define INT_BITS 32
 struct FastDivMod {
@@ -162,11 +196,13 @@ struct FastDivMod {
     static_assert(sizeof(unsigned int) == 4,
                   "Only Support 32-bit unsigned int.");
 
+    // s = ceil(log_2(d)) , first num that satisfy 2^s > d
     for (shift_val = 0; shift_val < INT_BITS; ++shift_val) {
       auto shift_limit = 1 << shift_val;
       if (shift_limit >= divisor)
         break;
     }
+
     uint64_t long_one = 1;
     uint64_t temp_div =
         ((long_one << INT_BITS) * ((long_one << shift_val) - divisor)) /
@@ -187,8 +223,8 @@ struct FastDivMod {
   }
 
   int32_t divisor;
-  int32_t shift_val;
-  uint32_t multiplier;
+  int32_t shift_val; // s
+  uint32_t multiplier; // m
 };
 #undef INT_BITS
 
@@ -207,6 +243,104 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
     dst[i] = src[i];
   }
 }
+
+struct GpuLaunchConfig {
+public:
+  GpuLaunchConfig() {}
+
+  size_t GetThreadNum() const { return GetGridSize() * GetBlockSize(); }
+
+  size_t GetGridSize() const {
+    return block_per_grid.x * block_per_grid.y * block_per_grid.z;
+  }
+
+  size_t GetBlockSize() const {
+    return thread_per_block.x * thread_per_block.y * thread_per_block.z;
+  }
+
+  int compute_capability = 0;
+  dim3 thread_per_block = dim3(1, 1, 1);
+  dim3 block_per_grid = dim3(1, 1, 1);
+};
+
+std::ostream &operator<<(std::ostream &os, const GpuLaunchConfig &obj) {
+  os << "GpuLaunchConfig: ";
+  os << "\t grids(" << obj.block_per_grid.x << "," << obj.block_per_grid.y
+     << "," << obj.block_per_grid.z << ")";
+  os << "\t blocks(" << obj.thread_per_block.x << "," << obj.thread_per_block.y
+     << "," << obj.thread_per_block.z << ")" << std::endl;
+  return os;
+}
+
+/* According to NVIDIA, if number of threads per block is 64/128/256/512,
+ * cuda performs better. And number of blocks should be greater (at least
+ * 2x~4x) than number of SMs. Hence, SM count is took into account within
+ * this function to determine the right number of threads per block.
+ *
+ * 1. 64 <= thread_per_block <= 512
+ * 2. active_threads_num / (sm_count * 2) < limit_threads
+ * 3. active_threads_num / (sm_count * 4) < limit_threads
+ * 4. blocks <= limit_blocks
+ * 5. 1 thread process vec_size T elements.
+ */
+
+inline GpuLaunchConfig GetGpuLaunchConfig1D(int devid, int64_t numel,
+                                            int vec_size = 1) {
+  assert(numel >= 0);
+  assert(vec_size >= 1);
+
+  // https://github.com/NVIDIA/cuda-samples/blob/master/Samples/1_Utilities/deviceQuery/deviceQuery.cpp
+  // paddle/phi/backends/gpu/gpu_resources.cc
+  int dev_cnt = 0;
+  CHECK_CUDA_ERROR(cudaGetDeviceCount(&dev_cnt));
+  assert(dev_cnt > 0 && devid < dev_cnt);
+  CHECK_CUDA_ERROR(cudaSetDevice(devid));
+  cudaDeviceProp dev_prop;
+  CHECK_CUDA_ERROR(cudaGetDeviceProperties(&dev_prop, devid));
+  // Device 0: "NVIDIA GeForce RTX 3090"
+  //  CUDA Capability Major/Minor version number:    8.6
+  //  (082) Multiprocessors, (128) CUDA Cores/MP:    10496 CUDA Cores
+  //  Maximum number of threads per block:           1024
+  //  Max dimension size of a thread block (x,y,z): (1024, 1024, 64)
+  //  Max dimension size of a grid size    (x,y,z): (2147483647, 65535, 65535)
+  const int capability = dev_prop.major * 10 + dev_prop.minor;
+  // If thread number per block is 64/128/256/512, cuda performs better.
+  int limit_threads = std::min(BLOCK_SIZE, dev_prop.maxThreadsPerBlock);
+  int limit_blocks = dev_prop.maxGridSize[0];
+  int sm_count = dev_prop.multiProcessorCount;
+
+  // threads
+  int threads = limit_threads;
+  int64_t active_threads_num = DivUp<int64_t>(numel, vec_size);
+  if (active_threads_num / (sm_count << 1) < limit_threads) {
+    // Round up threads number into an exponential multiple of 2, while number
+    // of acitve blocks is about twice of SM, to acquire better performance.
+    threads = RoundUpPowerOfTwo(active_threads_num / (sm_count << 1));
+  } else if (active_threads_num / (sm_count << 2) < limit_threads) {
+    // Round up threads number into an exponential multiple of 2, while number
+    // of acitve blocks is about 4 times of SM, to acquire better performance.
+    threads = RoundUpPowerOfTwo(active_threads_num / (sm_count << 2));
+  }
+  // Number of threads per block shall be larger than 64.
+  threads = std::max(threads, 64);
+
+  // blocks
+  int blocks = DivUp<int64_t>(active_threads_num, threads);
+  blocks = std::min(blocks, limit_blocks);
+
+  GpuLaunchConfig config;
+  config.thread_per_block.x = threads;
+  config.block_per_grid.x = blocks;
+  config.compute_capability = capability;
+
+  // std::cout << "Get 1-D launch config: numel=" << numel
+  //         << ", vec_size=" << vec_size << ", block_size=" << threads
+  //         << ", grid_size=" << blocks << ", limit_blocks=" << limit_blocks
+  //         << ", limit_threads=" << limit_threads << std::endl;
+
+  return config;
+}
+
 } // namespace details
 
 /**
@@ -489,15 +623,25 @@ void LaunchElementwiseCudaKernel(T *out, const T *in, int64_t numel,
   dim3 thread_per_block = dim3(1, 1, 1);
   dim3 block_per_grid = dim3(1, 1, 1);
 
+#if 0
   thread_per_block.x = BLOCK_SIZE; // 512
-
   auto elems_per_block = VecSize * thread_per_block.x;
-
-  block_per_grid.x = DivUp<int64_t>(numel, elems_per_block);
+  block_per_grid.x = kps::details::DivUp<int64_t>(numel, elems_per_block);
 
   // printf("Grid : {%d, %d, %d} blocks. Blocks : {%d, %d, %d} threads.\n",
   // block_per_grid.x, block_per_grid.y, block_per_grid.z, thread_per_block.x,
   // thread_per_block.y, thread_per_block.z);
+#else
+  kps::details::GpuLaunchConfig gpu_config =
+      kps::details::GetGpuLaunchConfig1D(0, numel, VecSize);
+  // Get 1-D launch config: numel=100000000, vec_size=4, block_size=512,
+  // grid_size=48829, limit_blocks=2147483647, limit_threads=512
+  // GpuLaunchConfig:         grids(48829,1,1)        blocks(512,1,1)
+  // std::cout << gpu_config << std::endl;
+  thread_per_block = gpu_config.thread_per_block;
+  block_per_grid = gpu_config.block_per_grid;
+  auto elems_per_block = VecSize * thread_per_block.x;
+#endif
 
   int64_t main_offset = (numel / elems_per_block) * elems_per_block;
 
@@ -528,37 +672,6 @@ void ElementwiseKernel(T *out, const T *in, int64_t numel, Functor func,
     throw std::invalid_argument(ss.str());
     break;
   }
-  }
-}
-
-#define CHECK_CUDA_ERROR(val) checkCuda((val), #val, __FILE__, __LINE__)
-template <typename T>
-void checkCuda(T err, const char *const func, const char *const file,
-               const int line) {
-  if (err != cudaSuccess) {
-    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
-    std::cerr << cudaGetErrorString(err) << " " << func << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-}
-
-#define CHECK_LAST_CUDA_ERROR(val) checkCudaLast(__FILE__, __LINE__)
-void checkCudaLast(const char *const file, const int line) {
-  cudaError_t err{cudaGetLastError()};
-  if (err != cudaSuccess) {
-    std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
-    std::cerr << cudaGetErrorString(err) << std::endl;
-    std::exit(EXIT_FAILURE);
-  }
-}
-
-#define CHECK_CUBLAS_ERROR(val) checkCuBlas((val), #val, __FILE__, __LINE__)
-template <typename T>
-void checkCuBlas(T err, const char *const func, const char *const file,
-                 const int line) {
-  if (err != CUBLAS_STATUS_SUCCESS) {
-    std::cerr << "cuBlas Runtime Error at: " << file << ":" << line;
-    std::exit(EXIT_FAILURE);
   }
 }
 
