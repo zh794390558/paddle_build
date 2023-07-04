@@ -194,12 +194,32 @@ template <typename T> int GetVectorizedSize(const T *pointer) {
   }
 }
 
-template <typename T = int64_t> inline T DivUp(const T &a, const T &b) {
+template <typename Ta, typename Tb = Ta, typename Ty=Ta> inline Ty DivUp(const Ta &a, const Tb &b) {
   return (a + b - 1) / b;
+}
+
+/**
+ * @brief get the last pow of 2
+ * 
+ * RoundDownPowOfTwo(10) = 8
+ */
+__host__ __device__ inline int RoundDownPowOfTwo(int n) {
+  n |= (n >> 1);
+  n |= (n >> 2);
+  n |= (n >> 4);
+  n |= (n >> 8);
+  n |= (n >> 16);
+  // error: calling a constexpr __host__ function("max") from a __device__
+  // function("RoundDownPowOfTwo") is not allowed. The experimental flag
+  // '--expt-relaxed-constexpr' can be used to allow this.
+  //  return std::max(1, n - (n >> 1));
+  //  https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__INT.html
+  return ::max(1, n - (n >> 1));
 }
 
 // round integer value into next highest power of 2.
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+// RoundUpToPowOfTwo(10) = 16
 inline int64_t RoundUpToPowOfTwo(int64_t n, int64_t min_val = 1) {
   n--;
   n |= (n >> 1);
@@ -622,28 +642,17 @@ private:
 
 } // namespace kps
 
-namespace details {
 
-/**
- * @brief get the last pow of 2
- */
-__host__ __device__ inline int GetLastPow2(int n) {
-  n |= (n >> 1);
-  n |= (n >> 2);
-  n |= (n >> 4);
-  n |= (n >> 8);
-  n |= (n >> 16);
-  // error: calling a constexpr __host__ function("max") from a __device__
-  // function("GetLastPow2") is not allowed. The experimental flag
-  // '--expt-relaxed-constexpr' can be used to allow this.
-  //  return std::max(1, n - (n >> 1));
-  //  https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__INT.html
-  return ::max(1, n - (n >> 1));
-}
+// Reduce split or not, Whether to use ReduceHigherDim
+#define REDUCE_SPLIT_BOUNDARY 512
+#define REDUCE_VEC_SIZE 4
 
-static inline int64_t CeilingDiv(int64_t a, int64_t b) {
-  return (a + b - 1) / b;
-}
+enum ReduceType {
+  kReduceLastDim = 0x01,   // when reduce_dim[0] == x_dim.size() - 1;
+  kReduceHigherDim = 0x02, // ReduceFirstDim or reduceSecondDim
+  kReduceAny = 0x03,       // when reduce_dim.size() > 1
+};
+
 
 // Get strides of x_dim, reduce_dim and left_dim for reduceLastDim and reduceAny
 static inline std::vector<int> GetDimStrides(const std::vector<int> &dims,
@@ -658,18 +667,6 @@ static inline std::vector<int> GetDimStrides(const std::vector<int> &dims,
   }
   return strides;
 }
-
-} // namespace details
-
-enum ReduceType {
-  kReduceLastDim = 0x01,   // when reduce_dim[0] == x_dim.size() - 1;
-  kReduceHigherDim = 0x02, // ReduceFirstDim or reduceSecondDim
-  kReduceAny = 0x03,       // when reduce_dim.size() > 1
-};
-
-// Reduce split or not, Whether to use ReduceHigherDim
-#define REDUCE_SPLIT_BOUNDARY 512
-#define REDUCE_VEC_SIZE 4
 
 template <typename Ty, int dev_id = 0> struct ReduceConfig {
   ReduceConfig(const std::vector<int> &origin_reduce_dims,
@@ -742,7 +739,7 @@ template <typename Ty, int dev_id = 0> struct ReduceConfig {
 
     return block_dim >= kps::details::kReduceMaxThread
                ? kps::details::kReduceMaxThread
-               : details::GetLastPow2(block_dim);
+               : kps::details::RoundDownPowOfTwo(block_dim);
   }
 
   // If should_reduce_again, we need malloc temp space for temp data
@@ -871,9 +868,9 @@ private:
     std::cout << "reduce_dim: " << reduce_dim;
     std::cout << "left_dim: " << left_dim;
 
-    x_strides = details::GetDimStrides(x_dim, idx_dim);
-    reduce_strides = details::GetDimStrides(x_dim, reduce_dim);
-    left_strides = details::GetDimStrides(x_dim, left_dim);
+    x_strides = GetDimStrides(x_dim, idx_dim);
+    reduce_strides = GetDimStrides(x_dim, reduce_dim);
+    left_strides = GetDimStrides(x_dim, left_dim);
     std::cout << "x_strides: " << x_strides;
     std::cout << "reduce_strides: " << reduce_strides;
     std::cout << "left_strides: " << left_strides;
@@ -935,8 +932,8 @@ private:
       block_dim->x = block_x;
       block_dim->y =
           std::min(block_y, static_cast<int>(max_num_threads / block_dim->x));
-      grid_num = details::CeilingDiv(left_num, block_dim->y);
-      reduce_num_per_thread = details::CeilingDiv(reduce_num, block_dim->x);
+      grid_num = kps::details::DivUp(left_num, block_dim->y);
+      reduce_num_per_thread = kps::details::DivUp(reduce_num, block_dim->x);
     } else {
       block_x = GetBlockDim(left_num);
       block_y = GetBlockDim(reduce_num);
@@ -945,8 +942,8 @@ private:
           std::min(block_y, static_cast<int>(max_num_threads / block_dim->x));
       block_dim->x =
           std::min(block_x, static_cast<int>(max_num_threads / block_dim->y));
-      grid_num = details::CeilingDiv(left_num, block_dim->x);
-      reduce_num_per_thread = details::CeilingDiv(reduce_num, block_dim->y);
+      grid_num = kps::details::DivUp(left_num, block_dim->x);
+      reduce_num_per_thread = kps::details::DivUp(reduce_num, block_dim->y);
     }
     // int device_id = phi::backends::gpu::GetCurrentDeviceId();
     // int max_mp = phi::backends::gpu::GetGPUMultiProcessors(device_id);
@@ -971,10 +968,10 @@ private:
     // the number cannot be larger than max_reduce_num_per_thread, so we
     // choose the maximum between the result above and input_split_num_2.
     int input_split_num_1 =
-        details::CeilingDiv(reduce_num_per_thread, min_reduce_num_per_thread);
+        kps::details::DivUp(reduce_num_per_thread, min_reduce_num_per_thread);
     int input_split_num_2 =
-        details::CeilingDiv(reduce_num_per_thread, max_reduce_num_per_thread);
-    int input_split_num_3 = details::CeilingDiv(max_num_blocks, grid_num);
+        kps::details::DivUp(reduce_num_per_thread, max_reduce_num_per_thread);
+    int input_split_num_3 = kps::details::DivUp(max_num_blocks, grid_num);
 
     grid_dim->x = grid_num;
     grid_dim->y = std::max(std::min(input_split_num_1, input_split_num_3),
@@ -1012,18 +1009,18 @@ private:
     // init
     int num_block = (max_threads / left_num);
     block_dim->x = GetBlockDim(left_num);
-    grid_dim->x = details::CeilingDiv(left_num, block_dim->x);
+    grid_dim->x = kps::details::DivUp(left_num, block_dim->x);
     blocking_size = reduce_num;
 
     if (num_block > 1 && reduce_num >= REDUCE_SPLIT_BOUNDARY) {
-      blocking_size = details::GetLastPow2(reduce_num / num_block);
+      blocking_size = kps::details::RoundDownPowOfTwo(reduce_num / num_block);
       if (blocking_size <= 1) {
-        blocking_size = details::GetLastPow2(sqrt(reduce_num));
+        blocking_size = kps::details::RoundDownPowOfTwo(sqrt(reduce_num));
       } else if (blocking_size * 2 < reduce_num) {
         blocking_size *= 2;
       }
       should_reduce_again = true;
-      grid_dim->y = details::CeilingDiv(reduce_num, blocking_size);
+      grid_dim->y = kps::details::DivUp(reduce_num, blocking_size);
     }
   }
 
