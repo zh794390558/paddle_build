@@ -194,13 +194,14 @@ template <typename T> int GetVectorizedSize(const T *pointer) {
   }
 }
 
-template <typename Ta, typename Tb = Ta, typename Ty=Ta> inline Ty DivUp(const Ta &a, const Tb &b) {
+template <typename Ta, typename Tb = Ta, typename Ty = Ta>
+inline Ty DivUp(const Ta &a, const Tb &b) {
   return (a + b - 1) / b;
 }
 
 /**
  * @brief get the last pow of 2
- * 
+ *
  * RoundDownPowOfTwo(10) = 8
  */
 __host__ __device__ inline int RoundDownPowOfTwo(int n) {
@@ -642,7 +643,6 @@ private:
 
 } // namespace kps
 
-
 // Reduce split or not, Whether to use ReduceHigherDim
 #define REDUCE_SPLIT_BOUNDARY 512
 #define REDUCE_VEC_SIZE 4
@@ -652,7 +652,6 @@ enum ReduceType {
   kReduceHigherDim = 0x02, // ReduceFirstDim or reduceSecondDim
   kReduceAny = 0x03,       // when reduce_dim.size() > 1
 };
-
 
 // Get strides of x_dim, reduce_dim and left_dim for reduceLastDim and reduceAny
 static inline std::vector<int> GetDimStrides(const std::vector<int> &dims,
@@ -810,7 +809,6 @@ private:
     std::vector<int>().swap(x_new_dim);
     std::cout << "1. x_dim: " << x_dim;
     std::cout << "1. reduce_dim: " << reduce_dim;
-
 
     std::vector<int> reduce_dim_new;
     int is_reduced = 0;

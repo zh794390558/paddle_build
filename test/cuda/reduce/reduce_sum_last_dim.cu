@@ -22,6 +22,13 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
+#if defined(_WIN32)
+#define UNUSED
+#define __builtin_expect(EXP, C) (EXP)
+#else
+#define UNUSED __attribute__((unused))
+#endif
+
 #define THREAD_ID_X threadIdx.x
 #define THREAD_ID_Y threadIdx.y
 #define THREAD_ID_Z threadIdx.z
@@ -54,6 +61,18 @@
 #define DEVICE
 #define HOST
 #endif
+
+#define FULL_WARP_MASK 0xFFFFFFFF
+
+#define CREATE_SHFL_MASK(mask, predicate)                                      \
+  mask = __ballot_sync(FULL_WARP_MASK, (predicate))
+
+template <typename T>
+__forceinline__ __device__ T CudaShuffleDownSync(unsigned mask, T val,
+                                                 int delta,
+                                                 int width = warpSize) {
+  return __shfl_down_sync(mask, val, static_cast<unsigned>(delta), width);
+}
 
 #define CHECK_CUDA_ERROR(val) checkCuda((val), #val, __FILE__, __LINE__)
 template <typename T>
@@ -194,13 +213,14 @@ template <typename T> int GetVectorizedSize(const T *pointer) {
   }
 }
 
-template <typename Ta, typename Tb = Ta, typename Ty=Ta> inline Ty DivUp(const Ta &a, const Tb &b) {
+template <typename Ta, typename Tb = Ta, typename Ty = Ta>
+inline Ty DivUp(const Ta &a, const Tb &b) {
   return (a + b - 1) / b;
 }
 
 /**
  * @brief get the last pow of 2
- * 
+ *
  * RoundDownPowOfTwo(10) = 8
  */
 __host__ __device__ inline int RoundDownPowOfTwo(int n) {
@@ -406,6 +426,107 @@ inline GpuLaunchConfig GetGpuLaunchConfig1D(int devid, int64_t numel,
   return config;
 }
 
+template <typename T, typename ReduceOp>
+__device__ __forceinline__ T WarpReduce(T val, ReduceOp reducer) {
+  unsigned mask = 0u;
+  CREATE_SHFL_MASK(mask, true);
+  for (int stride = details::kWarpSize / 2; stride > 0; stride >>= 1) {
+    T temp = CudaShuffleDownSync(mask, val, stride);
+    val = reducer(val, temp);
+  }
+  return val;
+}
+
+/* e.g.
+ * |---------block---------|
+ * |warp0|warp1|warp2|warp3|
+ * |0~31|32~63|64~95|96~127|  ---->blockDim.x = 128
+ *  \|/  \|/   \|/    \|/     ---->1. First WarpReduce in each warp
+ * res0  res1  res2  res3     ---->2. Store result of each warp to shared memory
+ *   \    \    /     /        ---->3. Load the result above from shared memory
+ *        res                         to warp0 and process the second WarpReduce
+ */
+
+/**
+ * @brief BlockXReduce reduce along blockDim.x.
+ */
+template <typename T, typename ReduceOp>
+__device__ __forceinline__ T BlockXReduce(T val, ReduceOp reducer) {
+  __syncthreads();
+
+  using details::kWarpSize;
+  // WarpReduce result buffer
+  __shared__ T shared[2 * kWarpSize];
+
+  int block_dim_x = blockDim.x;
+
+  if (blockDim.x > kWarpSize) {
+    // Bit operation can be used when kWarpSize is 32 or 64 now
+    // WarpSize
+    constexpr int rshift_val =
+        (kWarpSize != 32) ? ((kWarpSize == 64) ? 6 : 5) : 5;
+    // NumWarps = blockDim.x / WarpSize
+    block_dim_x = blockDim.x >> rshift_val;
+    printf("BlockXReduce: NumWarps %d, warpSize %d\n", block_dim_x, kWarpSize);
+    // lane in Warp
+    int lane = threadIdx.x & (kWarpSize - 1);
+    int tid = threadIdx.y * blockDim.x + threadIdx.x;
+    // WarpIndex
+    int wid = tid >> rshift_val;
+    val = WarpReduce(val, reducer);
+    if (lane == 0) {
+      shared[wid] = val;
+    }
+    __syncthreads();
+
+    // block Index
+    int bid = threadIdx.y;
+    // load val for last WarpReduce
+    val = shared[bid * block_dim_x + lane];
+  }
+
+  unsigned mask = 0u;
+  CREATE_SHFL_MASK(mask, true);
+  for (int stride = 1; stride < block_dim_x; stride <<= 1) {
+    T temp = CudaShuffleDownSync(mask, val, stride);
+    val = reducer(val, temp);
+  }
+  __syncthreads();
+
+  if (threadIdx.x == 0) {
+    shared[threadIdx.y] = val;
+  }
+  __syncthreads();
+  return shared[threadIdx.y];
+}
+
+/**
+ * @brief Will be used in BlockYReduce, get the index of reduce_num in shared
+ * memory.
+ */
+__device__ __forceinline__ int SharedMemoryIndex(int index) {
+  return (threadIdx.y + index) * blockDim.x + threadIdx.x;
+}
+
+/**
+ * @brief BlockYReduce reduce along blockDim.y.
+ */
+template <typename T, typename ReduceOp>
+__device__ __forceinline__ T BlockYReduce(T val, ReduceOp reducer) {
+  __shared__ T shared_memory[1024];
+  shared_memory[SharedMemoryIndex(0)] = val;
+  for (int stride = blockDim.y / 2; stride > 0; stride >>= 1) {
+    __syncthreads();
+    if (threadIdx.y < stride && threadIdx.y + stride < blockDim.y) {
+      T temp = shared_memory[SharedMemoryIndex(stride)];
+      val = reducer(val, temp);
+    }
+    shared_memory[SharedMemoryIndex(0)] = val;
+  }
+  __syncthreads();
+  return shared_memory[threadIdx.x];
+}
+
 } // namespace details
 
 /**
@@ -431,6 +552,7 @@ __device__ __forceinline__ void Init(T *dst, T init_data) {
 
 template <typename T, int NX>
 __device__ __forceinline__ void Init(T *dst, T init_data, int read_lens) {
+  (void)read_lens;
 #pragma unroll
   for (int i = 0; i < NX; i++) {
     dst[i] = init_data;
@@ -456,11 +578,11 @@ __device__ __forceinline__ void Init(T *dst, T init_data, int read_lens) {
  * dst: The register pointer of the thread, the size is NX * NY.
  * src: The data pointer of the current block.
  * size: The current block needs to load size data continuously.
- * read_lens: not used.
  */
 template <typename T, int NX, int NY, bool IsBoundary = false>
 __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
                                          int num) {
+  (void)NY;
   if (IsBoundary) { // blockDim.x * NX > num
     int thread_offset = threadIdx.x * NX;
 #pragma unroll
@@ -470,7 +592,6 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
       }
     }
   } else { // blockDim,x * NX < num
-    // kVectorSize in (4, 2, 1)
     constexpr int kVectorSize = (NX % 4 == 0) ? 4 : (NX % 2 == 0) ? 2 : 1;
     constexpr int kVectorsPerThread = NX / kVectorSize;
     int thread_offset = threadIdx.x * kVectorsPerThread;
@@ -493,6 +614,9 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
 template <typename T, int NX, int NY, bool IsBoundary = false>
 __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
                                          int num, int read_lens) {
+  (void)read_lens;
+  (void)NY;
+
   if (IsBoundary) { // blockDim.x * NX > num
     int thread_offset = threadIdx.x * NX;
 #pragma unroll
@@ -516,6 +640,238 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
 #pragma unroll
       for (int idx = 0; idx < NX; ++idx) {
         dst[idx] = *(reinterpret_cast<T *>(vec_temp) + idx);
+      }
+    }
+  }
+}
+
+/**
+ * @brief Read 1D data from global memory to register. The difference
+ * from the above function is that it supports different data types of inputs.
+ *
+ * @template paraments
+ * T: The type of data.
+ * NX: Each thread load NX data from global memory continuously.
+ * NY: Each thread need to load NY rows, only NY = 1 was supported.
+ * ArgsT: The Type if dst, ArgsT can be std::tuple<T> or std::tuple<Args>
+ * Index: The index of data stored in dst.
+ * threadIdx.x is used as the thread index. Currently only GPU was supported.
+ * IsBoundary: Whether to make an out-of-bounds judgment on access to memory.
+ * When the number of data processed by this block is less than
+ * NX x NY x blockDim.x, boundary judgment is required to avoid memory access
+ * crossing the boundary.
+ *
+ * @param：
+ * dst: The register pointer of the thread, the size is NX * NY.
+ * src: The data pointer of the current block.
+ * size: The current block needs to load size data continuously.
+ */
+template <typename T, int NX, int NY, typename ArgsT, int Index,
+          bool IsBoundary = false>
+__device__ __forceinline__ void ReadData(ArgsT *dst, const T *__restrict__ src,
+                                         int num, int read_lens) {
+  (void)NY;
+  (void)read_lens;
+  if (IsBoundary) { // blockDim.x * NX > num
+    int thread_offset = threadIdx.x * NX;
+#pragma unroll
+    for (int idx = 0; idx < NX; ++idx) {
+      if (idx + thread_offset < num) {
+        std::get<Index>(dst[idx]) = src[thread_offset + idx];
+      }
+    }
+  } else { // blockDim,x * NX < num
+    constexpr int kVectorSize = (NX % 4 == 0) ? 4 : (NX % 2 == 0) ? 2 : 1;
+    constexpr int kVectorsPerThread = NX / kVectorSize;
+    int thread_offset = threadIdx.x * kVectorsPerThread;
+
+    using VecType = details::VectorType<T, kVectorSize>;
+    const VecType *vec_input = reinterpret_cast<const VecType *>(src);
+    VecType vec_temp[kVectorsPerThread];
+
+#pragma unroll
+    for (int i = 0; i < kVectorsPerThread; ++i) {
+      vec_temp[i] = vec_input[thread_offset + i];
+#pragma unroll
+      for (int idx = 0; idx < NX; ++idx) {
+        std::get<Index>(dst[idx]) = *(reinterpret_cast<T *>(vec_temp) + idx);
+      }
+    }
+  }
+}
+
+/**
+ * @brief Read 2D data from global memory to register according to Tx type, and
+ * store it as Ty type into register.
+ *
+ * threadIdx.x is used as the thread index. Currently only GPU was supported.
+ *
+ * @template paraments
+ * Tx: The type of data stored in the global memory.
+ * Ty: The type of data that needs to be stored in registers.
+ * NX: The number of data columns loaded by each thread.
+ * NY: The number of data rows loaded by each thread.
+ * IsBoundary: Indicates whether to perform block access storage out-of-bounds
+ * judgment. When the number of data processed by the block is less than
+ * NX x NY x blockDim, boundary judgment is required to avoid memory access
+ * crossing the boundary.
+ *
+ * @param：
+ * dst: The register pointer of the thread, the size is NX * NY.
+ * src: The data pointer of the current block.
+ * size_nx: The maximum offset of the current block is size_nx elements in the
+ * lowest dimension. The parameters are only calculated when isboundary = true.
+ * size_ny: The maximum offset of the current block is size_ny elements in the
+ * first dimension. The parameters are only calculated when isboundary = true.
+ * stride_nx: Each read one element stride stride_nx elements in the last dim.
+ * stride_ny: Each read one element stride stride_ny elements in the first dim.
+ */
+template <typename Tx, typename Ty, int NX, int NY, bool IsBoundary = false>
+__device__ __forceinline__ void ReadData(Ty *dst, const Tx *__restrict__ src,
+                                         int size_nx, int size_ny,
+                                         int stride_nx, int stride_ny) {
+  // launch 1D block
+  int thread_offset = threadIdx.x;
+  // remdiner elements.
+  int left_size_nx = size_nx - thread_offset;
+
+  // Each branch is added for better performance
+  if (NX == 1 && NY == 1) { // for NX == 1 and NY == 1
+    // dst is one element registor
+    // read one element from threadIdx.x
+    if (IsBoundary) {
+      if (left_size_nx > 0) {
+        dst[0] = static_cast<Ty>(src[thread_offset]);
+      }
+    } else {
+      dst[0] = static_cast<Ty>(src[thread_offset]);
+    }
+  } else if (NX == 1) { // for NX == 1 and NY != 1
+                        // dst is NY elements registor
+    // read NY elements from threadIdx.x, which is stride in y dim
+#pragma unroll
+    for (int idy = 0; idy < NY; ++idy) {
+      if (IsBoundary) {
+        if (idy * stride_ny >= size_ny) { // ?
+          break;
+        }
+      }
+      dst[idy] = static_cast<Ty>(src[thread_offset + idy * stride_ny]);
+    }
+  } else if (NY == 1) { // for NY == 1 and NX != 1
+                        // dst is NX elements registor
+    // read NX elements from threadIdx.x, which is stride in x dim
+#pragma unroll
+    for (int idx = 0; idx < NX; ++idx) {
+      if (IsBoundary) {
+        if (idx * stride_nx >= left_size_nx) {
+          break;
+        }
+      }
+      dst[idx] = static_cast<Ty>(src[thread_offset + idx * stride_nx]);
+    }
+  } else { // for NX != 1 and NY != 1
+#pragma unroll
+    for (int idx = 0; idx < NX; ++idx) {
+      if (IsBoundary) {
+        if (idx * stride_nx >= left_size_nx) {
+          break;
+        }
+      }
+#pragma unroll
+      for (int idy = 0; idy < NY; ++idy) {
+        if (IsBoundary) {
+          if (idy * stride_ny >= size_ny) {
+            break;
+          }
+        }
+        dst[idy * NX + idx] = static_cast<Ty>(
+            src[thread_offset + idx * stride_nx + idy * stride_ny]);
+      }
+    }
+  }
+}
+
+/**
+ * @brief Read 2D data from global memory to register with reduce form.
+ *
+ * @template paraments
+ * T: The type of data.
+ * NX: The number of data columns loaded by each thread.
+ * NY: The number of data rows loaded by each thread.
+ * threadIdx.x is used as the thread index. Currently only GPU was supported.
+ * Rank: The shape size of out. eg in[1, 35], out[32, 35] then shape size is 2.
+ * IsBoundary: Indicates whether to perform block access storage out-of-bounds
+ * judgment. When the number of data processed by the block is less than
+ * NX x NY x blockDim.x, boundary judgment is required to avoid memory access
+ * crossing the boundary.
+ *
+ * @param：
+ * dst: The register pointer of the thread, the size is NX * NY.
+ * src: The input data pointer of this block.
+ * block_offset: The data offset of this block, blockDim.x * blockIdx.x * NX.
+ * index_cal: Calculation configuration of Reduce. It is used to calculate the
+ * coordinate mapping relationship between output data and input data.
+ * size_nx: The current block needs to load size_nx columns of data, this
+ * parameter will participate in the calculation when isboundary = true.
+ * size_ny: The current block needs to load size_ny rows of data, this parameter
+ * will participate in the calculation when isboundary = true.
+ * will be used when IsBoundary = true.
+ * stride_nx: Each read one element stride stride_nx columns.
+ * stride_ny: Each read one element stride stride_ny raws.
+ * reduce_last_dim: Used to indicate whether the dimension of reduce contains
+ * the lowest dimension.
+ */
+template <typename Tx, typename Ty, int NX, int NY, int Rank, typename IndexCal,
+          typename Functor, bool IsBoundary = false>
+__device__ __forceinline__ void
+ReadDataReduce(Ty *dst, const Tx *__restrict__ src, int block_offset,
+               const IndexCal &index_cal, int size_nx, int size_ny,
+               int stride_nx, int stride_ny, Functor func,
+               bool reduce_last_dim) {
+  (void)Rank;
+  printf("ReadDataReduce: IsBoundary %d, reduce_last_dim %d, NX %d, NY %d,  "
+         "size_nx %d, size_ny %d, stride_nx %d, stride_ny %d\n",
+         IsBoundary, reduce_last_dim, NX, NY, size_nx, size_ny, stride_nx,
+         stride_ny);
+  int thread_offset = 0;
+  int left_idx = 0;
+  if (reduce_last_dim) {
+    // thread_offset is reduce dim
+    thread_offset = threadIdx.x;
+    left_idx = threadIdx.y;
+  } else {
+    // thread_offset is reduce dim
+    thread_offset = threadIdx.y;
+    left_idx = threadIdx.x;
+  }
+
+  if (NX == 1) {
+#pragma unroll
+    for (int ny = 0; ny < NY; ++ny) {
+      if (IsBoundary) {
+        if (thread_offset >= size_ny) {
+          break;
+        }
+      }
+      uint32_t index_src = index_cal(thread_offset + block_offset);
+      dst[ny] = static_cast<Ty>(func(src[index_src]));
+      thread_offset += stride_ny;
+    }
+  } else {
+#pragma unroll
+    for (int nx = 0; nx < NX; ++nx) {
+#pragma unroll
+      for (int ny = 0; ny < NY; ++ny) {
+        if (IsBoundary) {
+          if ((thread_offset >= size_ny) ||
+              (left_idx + nx * stride_nx >= size_nx)) {
+            break;
+          }
+        }
+        uint32_t index_src = index_cal(thread_offset + block_offset);
+        dst[nx + ny * NX] = static_cast<Ty>(func(src[index_src]));
+        thread_offset += stride_ny;
       }
     }
   }
@@ -545,6 +901,7 @@ __device__ __forceinline__ void ReadData(T *dst, const T *__restrict__ src,
 template <typename T, int NX, int NY, bool IsBoundary = false>
 __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src,
                                           int num) {
+  (void)NY;
   if (IsBoundary) {
     int thread_offset = threadIdx.x * NX;
 #pragma unroll
@@ -573,6 +930,8 @@ __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src,
 template <typename T, int NX, int NY, bool IsBoundary = false>
 __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src, int num,
                                           int read_lens) {
+  (void)NY;
+  (void)read_lens;
   if (IsBoundary) {
     int thread_offset = threadIdx.x * NX;
 #pragma unroll
@@ -594,6 +953,103 @@ __device__ __forceinline__ void WriteData(T *dst, T *__restrict__ src, int num,
     for (int idx = 0; idx < kVectorsPerThread; ++idx) {
       vec_temp[idx] = *(reinterpret_cast<VecType *>(src) + idx);
       vec_dst[thread_offset + idx] = vec_temp[idx];
+    }
+  }
+}
+
+/**
+ * @brief Perform unary calculation according to OpFunc. Shape of input and
+ * output are the same.
+ *
+ * @template paraments
+ * InT: The data type of in.
+ * OutT: The data type of out.
+ * NX: The number of data columns loaded by each thread.
+ * NY: The number of data rows loaded by each thread.
+ * threadIdx.x is used as the thread index. Currently only GPU was supported.
+ * OpFunc: Compute functor which has an operator() as following:
+ *     template <typename InT, typename OutT>
+ *     struct XxxFunctor {
+ *       HOSTDEVICE OutT operator()(const InT& a) const {
+ *         return ...;
+ *       }
+ *     };
+ *
+ * @param：
+ * out: The register pointer of out, the size is NX * NY.
+ * in: The register pointer of in, the size is NX * NY.
+ * compute: Compute function which was declared like OpFunc<InT, OutT>().
+ */
+template <typename InT, typename OutT, int NX, int NY, class OpFunc>
+__device__ __forceinline__ void ElementwiseUnary(OutT *out, const InT *in,
+                                                 OpFunc compute) {
+#pragma unroll
+  for (int idx = 0; idx < NX * NY; idx++) {
+    out[idx] = static_cast<OutT>(compute(in[idx]));
+  }
+}
+
+/**
+ * @brief The Reduce provides collective methods for computing a parallel
+ * reduction of items partitioned across a CUDA block and intra thread. When
+ * ReduceMode == kLocalMode, use shared memory to reduce between threads.When
+ * ReduceMode == kGlobalMode, thread reduce along nx.
+ *
+ * @template paraments
+ * T: The type of data.
+ * NX: The number of data continuously loaded by each thread.
+ * NY: The number of data rows loaded by each thread, only NY = 1 was supported.
+ * threadIdx.x is used as the thread index. Currently only GPU was supported.
+ * ReduceFunctor: Compute functor which has an operator() as following
+ *     template <typename InT>
+ *     struct ReduceFunctor {
+ *       HOSTDEVICE InT operator()(const InT& a, const InT& b) const {
+ *         return ...;
+ *       }
+ *     };
+ * ReduceMode: Reduce mode, can be kLocalMode, kGlobalMode.
+ *
+ * @param
+ * out: The register pointer of out, the size is NX * NY.
+ * in: The register pointer of in, the size is NX * NY.
+ * reducer: Compute function which was declared like ReduceFunctor<InT>().
+ * reduce_last_dim: if the last dim gets involved in reduction.
+ */
+template <typename T, int NX, int NY, class ReduceFunctor,
+          details::ReduceMode Mode>
+__device__ __forceinline__ void
+Reduce(T *out, const T *in, ReduceFunctor reducer, bool reduce_last_dim) {
+
+  if (Mode == details::ReduceMode::kGlobalMode) {
+    // reduce_last_dim 和 block_reduce_y 互斥
+    bool block_reduce_y = (!reduce_last_dim) && (blockDim.y > 1);
+
+    // when reduce is not required for the last dim, and reduce num has been
+    // split into multiple threads
+    if (block_reduce_y) {
+#pragma unroll
+      for (int i = 0; i < NY * NX; i++) { // reduce along blockdim.y
+        out[i] = details::BlockYReduce<T, ReduceFunctor>(out[i], reducer);
+      }
+    }
+
+    // when last dimension need to be reduced
+    if (reduce_last_dim) {
+#pragma unroll
+      for (int i = 0; i < NY * NX; i++) { // reduce along blockDim.x
+        out[i] = details::BlockXReduce<T, ReduceFunctor>(out[i], reducer);
+      }
+    }
+  } else { // else  kLocalMode
+           // in -> out
+           // in NY x NX, reduce along x dim
+           // out is NY elements
+#pragma unroll
+    for (int i = 0; i < NY; ++i) {
+#pragma unroll
+      for (int j = 0; j < NX; ++j) {
+        out[i] = reducer(out[i], in[i * NX + j]);
+      }
     }
   }
 }
@@ -640,8 +1096,48 @@ private:
   MPType n_inv;
 };
 
-} // namespace kps
+struct DimConfig {
+  int split_num_x; // gridDim.x
+  int split_num_y; // gridDim.y
+  int split_num_z; // gridDim.z
 
+  int deal_size_x; // blockDim.x
+  int deal_size_y; // blockDim.y
+  int deal_size_z; // blockDim.z
+
+  int rem_x; // remainder.x
+  int rem_y; // remainder.y
+  int rem_z; // remainder.z
+
+  HOSTDEVICE explicit inline DimConfig(int split_x, int split_y, int split_z,
+                                       int size_x, int size_y, int size_z) {
+    split_num_x = split_x;
+    split_num_y = split_y;
+    split_num_z = split_z;
+    deal_size_x = size_x;
+    deal_size_y = size_y;
+    deal_size_z = size_z;
+  }
+
+  HOSTDEVICE void SetRem(int rem_nx, int rem_ny, int rem_nz) {
+    rem_x = rem_nx;
+    rem_y = rem_ny;
+    rem_z = rem_nz;
+  }
+};
+
+inline std::ostream &operator<<(std::ostream &os, const DimConfig &dim) {
+  os << "DimConfig: ";
+  os << "block (" << dim.deal_size_x << ", " << dim.deal_size_y << ", "
+     << dim.deal_size_z << ") ";
+  os << "grid (" << dim.split_num_x << ", " << dim.split_num_y << ", "
+     << dim.split_num_z << ") ";
+  os << "remainder (" << dim.rem_x << ", " << dim.rem_y << ", " << dim.rem_z
+     << ") ";
+  return os;
+}
+
+} // namespace kps
 
 // Reduce split or not, Whether to use ReduceHigherDim
 #define REDUCE_SPLIT_BOUNDARY 512
@@ -652,7 +1148,6 @@ enum ReduceType {
   kReduceHigherDim = 0x02, // ReduceFirstDim or reduceSecondDim
   kReduceAny = 0x03,       // when reduce_dim.size() > 1
 };
-
 
 // Get strides of x_dim, reduce_dim and left_dim for reduceLastDim and reduceAny
 static inline std::vector<int> GetDimStrides(const std::vector<int> &dims,
@@ -668,11 +1163,219 @@ static inline std::vector<int> GetDimStrides(const std::vector<int> &dims,
   return strides;
 }
 
+namespace detail {
+
+template <typename T, size_t kStart, size_t kEnd, bool kStop>
+struct UnrollVarArgsAssignImpl {
+  template <typename... Args>
+  HOSTDEVICE inline static void Run(T *d, T val, Args... args) {
+    static_assert(sizeof...(args) + 1 == kEnd - kStart, "Wrong argument");
+    d[kStart] = val;
+    UnrollVarArgsAssignImpl<T, kStart + 1, kEnd, kStart + 1 == kEnd>::Run(
+        d, args...);
+  }
+};
+
+template <typename T, size_t kStart, size_t kEnd>
+struct UnrollVarArgsAssignImpl<T, kStart, kEnd, true> {
+  HOSTDEVICE inline static void Run(T *d) {}
+};
+
+template <typename T> struct UnrollVarArgsAssign {
+  template <typename... Args>
+  HOSTDEVICE inline static void Run(T *d, Args... args) {
+    UnrollVarArgsAssignImpl<T, 0, sizeof...(Args), sizeof...(Args) == 0>::Run(
+        d, args...);
+  }
+};
+
+template <size_t kStart, size_t kEnd, bool kStop> struct UnrollCompare {
+  template <typename T>
+  HOSTDEVICE inline static bool Run(const T *d1, const T *d2) {
+    return d1[kStart] == d2[kStart] &&
+           UnrollCompare<kStart + 1, kEnd, kStart + 1 == kEnd>::Run(d1, d2);
+  }
+};
+
+template <size_t kStart, size_t kEnd> struct UnrollCompare<kStart, kEnd, true> {
+  template <typename T>
+  HOSTDEVICE inline constexpr static bool Run(const T *d1 UNUSED,
+                                              const T *d2 UNUSED) {
+    return true;
+  }
+};
+
+template <size_t kStart, size_t kEnd, bool kStop> struct UnrollFillConstant {
+  template <typename T> HOSTDEVICE inline static void Run(T *data, T val) {
+    data[kStart] = val;
+    UnrollFillConstant<kStart + 1, kEnd, kStart + 1 == kEnd>::Run(data, val);
+  }
+};
+
+template <size_t kStart, size_t kEnd>
+struct UnrollFillConstant<kStart, kEnd, true> {
+  template <typename T>
+  HOSTDEVICE inline static void Run(T *data UNUSED, T val UNUSED) {}
+};
+
+} // namespace detail
+
+template <typename T>
+using UnrollVarArgsAssign = detail::UnrollVarArgsAssign<T>;
+
+template <size_t N> using UnrollCompare = detail::UnrollCompare<0, N, N == 0>;
+
+template <size_t N>
+using UnrollFillConstant = detail::UnrollFillConstant<0, N, N == 0>;
+
+template <typename T, size_t N> class Array {
+public:
+  static constexpr size_t kSize = N;
+
+  HOSTDEVICE inline Array() {}
+
+  template <typename... Args>
+  HOSTDEVICE inline explicit Array(const T &val, Args... args) {
+    static_assert(N == sizeof...(Args) + 1, "Invalid argument");
+    UnrollVarArgsAssign<T>::Run(data_, val, args...);
+  }
+
+  HOSTDEVICE inline void Fill(const T &val) {
+    UnrollFillConstant<N>::Run(data_, val);
+  }
+
+  HOSTDEVICE inline const T *Get() const { return data_; }
+
+  HOSTDEVICE inline T *GetMutable() { return data_; }
+
+  HOSTDEVICE inline T &operator[](size_t i) { return *advance(data_, i); }
+
+  // Writing "return data_[i]" would cause compilation warning/error:
+  // "array subscript is above array bound" in Python 35 CI.
+  // It seems that it is a false warning of GCC if we do not check the bounds
+  // of array index. But for better performance, we do not check in operator[]
+  // like what is in STL. If users want to check the bounds, use at() instead
+  HOSTDEVICE inline const T &operator[](size_t i) const {
+    return *advance(data_, i);
+  }
+
+  HOSTDEVICE inline T &at(size_t i) {
+#if !defined(__CUDA_ARCH__) && !defined(__HIPCC__)
+    assert(i < N);
+#endif
+    return (*this)[i];
+  }
+
+  HOSTDEVICE inline const T &at(size_t i) const {
+#if !defined(__CUDA_ARCH__) && !defined(__HIPCC__)
+    assert(i < N);
+#endif
+    return (*this)[i];
+  }
+
+  HOSTDEVICE constexpr size_t size() const { return N; }
+
+  HOSTDEVICE inline bool operator==(const Array<T, N> &other) const {
+    return UnrollCompare<N>::Run(data_, other.data_);
+  }
+
+  HOSTDEVICE inline bool operator!=(const Array<T, N> &other) const {
+    return !(*this == other);
+  }
+
+private:
+  template <typename U> HOSTDEVICE static inline U *advance(U *ptr, size_t i) {
+    return ptr + i;
+  }
+
+  T data_[N] = {};
+};
+
+constexpr int kMaxRank = 9;
+
+// Convert dims from vector to array
+template <typename T, size_t ElementCount, typename VectorLikeType>
+static inline Array<T, ElementCount> VectorToArray(const VectorLikeType &vec) {
+  assert(vec.size() <= ElementCount);
+
+  size_t n = static_cast<size_t>(vec.size());
+  Array<T, ElementCount> ret;
+  for (size_t i = 0; i < n; ++i) {
+    ret[i] = vec[i];
+  }
+  return ret;
+}
+
+struct IndexCalculator {
+  IndexCalculator(int dim, const std::vector<int> &cal_dims,
+                  const std::vector<int> &cal_strides,
+                  const std::vector<int> &full_strides)
+      : dim(dim) {
+    strides = VectorToArray<int, kMaxRank>(full_strides);
+    dims = VectorToArray<int, kMaxRank>(cal_dims);
+    reduce_strides = VectorToArray<int, kMaxRank>(cal_strides);
+
+    std::vector<kps::details::FastDivMod> cal_divmoders;
+    // fast divmod
+    for (auto i : cal_strides) {
+      cal_divmoders.push_back(kps::details::FastDivMod(i));
+    }
+    divmoders =
+        VectorToArray<kps::details::FastDivMod, kMaxRank>(cal_divmoders);
+  }
+
+  __device__ inline int operator()(int offset) const {
+    int index = 0;
+#pragma unroll
+    for (int i = 0; i < kMaxRank; ++i) {
+      if (i == dim) {
+        break;
+      }
+      auto divmod = divmoders[i].Divmod(offset);
+      index += (divmod.val[0] * strides[dims[i]]);
+      offset = divmod.val[1];
+    }
+    return index;
+  }
+
+  int dim;
+  Array<int, kMaxRank> dims;
+  Array<int, kMaxRank> strides;
+  Array<int, kMaxRank> reduce_strides;
+  Array<kps::details::FastDivMod, kMaxRank> divmoders;
+};
+
+template <bool ReduceLastDim = false> struct ReduceIndexMapping {
+
+  const kps::DimConfig dim;
+  int loop_size;
+
+  HOSTDEVICE ReduceIndexMapping(const kps::DimConfig &dims, int max_loop = 1)
+      : dim(dims), loop_size(max_loop) {}
+
+  __device__ __forceinline__ int BlockIdX() { return blockIdx.x; }
+
+  __device__ __forceinline__ int BlockIdY() { return blockIdx.y; }
+
+  __device__ __forceinline__ int BlockDimX() { return blockDim.x; }
+
+  __device__ __forceinline__ int BlockDimY() { return blockDim.y; }
+
+  __device__ __forceinline__ int GridDimX() { return gridDim.x; }
+
+  __device__ __forceinline__ int GridDimY() { return gridDim.y; }
+
+  __device__ int GetLoopSize() { return 1; }
+};
+
+
 template <typename Ty, int dev_id = 0> struct ReduceConfig {
   ReduceConfig(const std::vector<int> &origin_reduce_dims,
                const std::vector<int> &origin_x_dim)
       : reduce_dims_origin(origin_reduce_dims), x_dim(origin_x_dim),
         devid(dev_id) {
+    std::cout << "0. input x_dim: " << x_dim;
+    std::cout << "0. input reduce_dims: " << reduce_dims_origin;
     CHECK_CUDA_ERROR(cudaSetDevice(devid));
     CHECK_CUDA_ERROR(cudaGetDeviceProperties(&dev_prop, devid));
   }
@@ -750,6 +1453,7 @@ template <typename Ty, int dev_id = 0> struct ReduceConfig {
           static_cast<int64_t>(left_num * grid.z * grid.y * sizeof(Ty))};
       cudaMalloc(&output_data, size);
       owned_output = true;
+      std::cout << "should_reduce_again: " << size << std::endl;
     } else {
       output_data = y_data;
     }
@@ -769,9 +1473,6 @@ private:
     }
     std::vector<int> reduce_dim_temp(reduce_set.begin(), reduce_set.end());
     std::sort(reduce_dim_temp.begin(), reduce_dim_temp.end());
-
-    std::cout << "0. input x_dim: " << x_dim;
-    std::cout << "0. input reduce_dims: " << reduce_dims_origin;
 
     // update reduce_dim and x_dim
     std::vector<int> x_new_dim;
@@ -810,7 +1511,6 @@ private:
     std::vector<int>().swap(x_new_dim);
     std::cout << "1. x_dim: " << x_dim;
     std::cout << "1. reduce_dim: " << reduce_dim;
-
 
     std::vector<int> reduce_dim_new;
     int is_reduced = 0;
@@ -1070,27 +1770,341 @@ inline std::ostream &operator<<(std::ostream &os,
   return os;
 }
 
-// https://github.com/NVIDIA/cub
-// https://nvlabs.github.io/cub/index.html
-template <typename Tx, typename Ty, template <typename> class ReduceOp,
+// when reduce_dim.size() == 1 and reduce_dim[0] == x_dim.size() - 1, or
+// when reduce_dim.size() != 1 and reduce_dim.size() != x_dim.size(), this
+// function will be used
+template <typename Tx, typename Ty, typename MPType, typename ReduceOp,
+          typename TransformOp, typename Calculator>
+__global__ void
+ReduceAnyKernel(const Tx *x, Ty *y, ReduceOp reducer, TransformOp transformer,
+                MPType init, int reduce_num, int left_num, bool reduce_last_dim,
+                const Calculator reduce_index_calculator,
+                const Calculator left_index_calculator,
+                const kps::DimConfig dim, bool is_mean) {
+  int input_idx, left_idx, stride;
+  int block_size = 0;
+  bool need_store = true;
+  int loop_left = 0;
+  int tid = 0;
+  // the last dim gets involved in reduction
+  int store_offset = 0;
+  int stride_left = 0;
+
+  if (reduce_last_dim) {
+    auto block = ReduceIndexMapping<true>(dim, left_num);
+    tid = THREAD_ID_X;
+
+    // blockDim.x
+    block_size = block.BlockDimX();
+    printf("reduce last dim: block_size %d\n", block_size);
+
+    // offset and stride in Y dim
+    // block.BlockIdX() == index of blockDim.y
+    left_idx = block.BlockIdX() * block.BlockDimY() + THREAD_ID_Y;
+    printf("reduce last dim: left_idx %d, blockIdx.x %d, blockDim.y %d, "
+           "threadIdx.y %d\n",
+           left_idx, block.BlockIdX(), block.BlockDimY(), THREAD_ID_Y);
+    stride_left = 1;
+
+    // CUDA 时，一次处理所有的Y，不需要在Y上循环
+    // loop_left <= 1
+    loop_left = min(block.GetLoopSize(), left_num - left_idx);
+    assert(loop_left <= 1);
+    printf("reduce last dim: left_num %d, left_idx %d, loop_left %d, loop size "
+           "%d\n",
+           left_num, left_idx, loop_left, block.GetLoopSize());
+
+    // block offset and stride in X dim
+    // block.BlockIdY() == index of blockDim.x
+    input_idx = block.BlockIdY() * block.BlockDimX();
+    printf("reduce last dim: input_idx %d, blockIdx.y %d, blockDim.x %d\n",
+           input_idx, block.BlockIdY(), block.BlockDimX());
+    //  block.GridDimY() == num of blockDim.x
+    stride = block.GridDimY() * block.BlockDimX();
+    printf("reduce last dim: stride %d, blockIdx.y %d, blockDim.x %d\n", stride,
+           block.GridDimY(), block.BlockDimX());
+
+    // offset for out, flag for left_index < left_num
+    need_store = (THREAD_ID_X == 0) && (left_idx < left_num);
+    printf("reduce last dim: need_store %d, threadIdx.x %d, left_idx %d, "
+           "left_num %d\n",
+           need_store, THREAD_ID_X, left_idx, left_num);
+    store_offset = block.BlockIdY() * left_num + left_idx;
+    printf("reduce last dim: store_offset %d, blockIdx.y %d, left_idx %d, "
+           "left_num %d\n",
+           store_offset, block.BlockIdY(), left_idx, left_num);
+
+  } else {
+    auto block = ReduceIndexMapping<false>(dim, left_num);
+    tid = THREAD_ID_Y;
+    // blockDim.y
+    block_size = block.BlockDimY();
+
+    input_idx = block.BlockIdY() * block.BlockDimY();
+    left_idx = block.BlockIdX() * block.BlockDimX() + THREAD_ID_X;
+    stride = block.GridDimY() * block.BlockDimY();
+
+    need_store = (THREAD_ID_Y == 0) && (left_idx < left_num);
+    loop_left = min(block.GetLoopSize(), left_num - left_idx);
+    stride_left = block.BlockDimX() * block.GridDimX();
+    store_offset = block.BlockIdY() * left_num + left_idx;
+  }
+
+  // calculate the offset, means the addr where each thread really start.
+  // 1. reduce for each thread
+  MPType input_compute[REDUCE_VEC_SIZE];
+  Tx input_reg[REDUCE_VEC_SIZE];
+
+  int input_idx_tmp = input_idx;
+
+  // 1. reduce last dim and CUDA device, loop_left <= 1, stride_left == 1, so i == 0
+  for (int i = 0; i < loop_left; i += stride_left) {
+    // in offset
+    int input_offset = left_index_calculator(left_idx + i);
+    // in offset ptr
+    const Tx *input = x + input_offset;
+
+    MPType reduce_var = init;
+
+    // load REDUCE_VEC_SIZE data once, and then compute
+    int bound = reduce_num - (REDUCE_VEC_SIZE - 1) * stride;
+    printf("ReduceAnyKernel: bound %d, reduce_num %d, stride %d\n", bound, reduce_num, stride);
+
+    input_idx = input_idx_tmp;
+
+    printf("ReduceAnyKernel: input_idx %d, block_size %d,  input_idx + block_size < bound %d, REDUCE_VEC_SIZE * stride %d\n", input_idx, block_size, input_idx + block_size < bound,  REDUCE_VEC_SIZE * stride);
+    for (; input_idx + block_size < bound;
+         input_idx += REDUCE_VEC_SIZE * stride) {
+      printf("ReduceAnyKernel: in bound\n");
+      kps::ReadDataReduce<Tx, Tx, 1, REDUCE_VEC_SIZE, 1, Calculator,
+                          kps::IdentityFunctor<Tx>, false>(
+          &input_reg[0], input, input_idx, reduce_index_calculator, 1,
+          reduce_num, 1, stride, kps::IdentityFunctor<Tx>(), reduce_last_dim);
+
+      kps::ElementwiseUnary<Tx, MPType, REDUCE_VEC_SIZE, 1, TransformOp>(
+          &input_compute[0], &input_reg[0], transformer);
+
+      kps::Reduce<MPType, REDUCE_VEC_SIZE, 1, ReduceOp,
+                  kps::details::ReduceMode::kLocalMode>(
+          &reduce_var, &input_compute[0], reducer, reduce_last_dim);
+    }
+
+    // reg init
+    kps::Init<MPType, REDUCE_VEC_SIZE>(&input_compute[0], init);
+
+    // read REDUCE_VEC_SIZE into col vector (VEC_SIZE, 1)
+    kps::ReadDataReduce<Tx, MPType, 1 /*NX*/, REDUCE_VEC_SIZE /*NY*/, 1/*Rank*/, Calculator,
+                        TransformOp, true>(
+        &input_compute[0], input, input_idx /*block_offset*/, reduce_index_calculator, 1 /*size_nx*/,
+        reduce_num - input_idx /*size_ny*/, 1 /*stride_nx*/, stride /*stride_ny*/, transformer, reduce_last_dim);
+
+    // LocalReduce, given (NY, NX)，reduce on x axis, has NY result
+    kps::Reduce<MPType, REDUCE_VEC_SIZE/*NX*/, 1/*NY*/, ReduceOp,
+                kps::details::ReduceMode::kLocalMode>(
+        &reduce_var, &input_compute[0], reducer, reduce_last_dim);
+
+    printf("1 element reduce before: %d\n", (int)reduce_var);
+    kps::Reduce<MPType, 1 /*NX*/, 1 /*NY*/, ReduceOp, kps::details::kGlobalMode>(
+        &reduce_var, &reduce_var, reducer, reduce_last_dim);
+    printf("1 element reduce after: %d\n", (int)reduce_var);
+
+    if (is_mean) {
+      reduce_var = reduce_var / static_cast<MPType>(reduce_num);
+    }
+
+    // write one result
+    Ty result = static_cast<Ty>(reduce_var);
+    kps::details::WriteData<Ty>(y + store_offset + i, &result,
+                                static_cast<int>(need_store));
+  }
+
+}
+
+template <typename Tx, typename Ty, typename MPType, typename ReduceOp,
           typename TransformOp>
-static void CubTensorReduceImpl(const Tx *x_data, Ty *y_data,
-                                const TransformOp &transform, int reduce_num,
-                                cudaStream_t stream) {
-  auto reducer = ReduceOp<Ty>();
-  cub::TransformInputIterator<Ty, TransformOp, const Tx *> trans_x(x_data,
-                                                                   transform);
-  size_t temp_storage_bytes = 0;
-  cub::DeviceReduce::Reduce(nullptr, temp_storage_bytes, trans_x, y_data,
-                            reduce_num, reducer, reducer.initial(), stream);
+__global__ void
+ReduceHigherDimKernel(const Tx *x, Ty *y, ReduceOp reducer,
+                      TransformOp transformer, MPType init, int reduce_num,
+                      int left_num, int blocking_size, const kps::DimConfig dim,
+                      int mean_div, bool is_mean) {
+  // when reduce_dim.size() == 1 and reduce_dim[0] != x_dim.size() - 1, this
+  // function will be used
+  auto block = ReduceIndexMapping<false>(dim);
+  int idy = block.BlockIdY() * blocking_size;
+  int idx = block.BlockIdX() * block.BlockDimX();
+  int idz = BLOCK_ID_Z * left_num;
+  int stride = dim.split_num_x * dim.deal_size_x;
+  int size = left_num - dim.rem_x;
+  int loop_size = min(reduce_num - idy, blocking_size);
+  int store_offset = block.BlockIdY() * left_num + idz * block.GridDimY();
+  int block_offset = idy * left_num + idz * reduce_num;
+  const Tx *input = x + block_offset;
+  Tx reduce_input;
+  for (; idx < size; idx += stride) {
+    MPType reduce_var = init;
+    MPType reduce_compute = init;
+    for (int loop_idx = 0; loop_idx < loop_size; ++loop_idx) {
+      kps::ReadData<Tx, Tx, 1, 1, false>(&reduce_input,
+                                         input + loop_idx * left_num + idx,
+                                         block.BlockDimX(), 1, 1, left_num);
+      kps::ElementwiseUnary<Tx, MPType, 1, 1, TransformOp>(
+          &reduce_compute, &reduce_input, transformer);
+      kps::Reduce<MPType, 1, 1, ReduceOp, kps::details::ReduceMode::kLocalMode>(
+          &reduce_var, &reduce_compute, reducer, false);
+    }
+    if (is_mean) {
+      reduce_var = reduce_var / static_cast<MPType>(mean_div);
+    }
+    Ty result = static_cast<Ty>(reduce_var);
+    kps::WriteData<Ty, 1, 1, false>(y + store_offset + idx, &result,
+                                    block.BlockDimX());
+  }
 
-  uint8_t *temp_storage;
-  CHECK_CUDA_ERROR(cudaMalloc(&temp_storage, temp_storage_bytes));
+  if (idx < left_num) {
+    MPType reduce_var = init;
+    MPType reduce_compute = init;
+    for (int loop_idx = 0; loop_idx < loop_size; ++loop_idx) {
+      kps::ReadData<Tx, Tx, 1, 1, true>(&reduce_input,
+                                        input + loop_idx * left_num + idx,
+                                        dim.rem_x, 1, 1, left_num);
+      kps::ElementwiseUnary<Tx, MPType, 1, 1, TransformOp>(
+          &reduce_compute, &reduce_input, transformer);
+      kps::Reduce<MPType, 1, 1, ReduceOp, kps::details::ReduceMode::kLocalMode>(
+          &reduce_var, &reduce_compute, reducer, false);
+    }
 
-  cub::DeviceReduce::Reduce(temp_storage, temp_storage_bytes, trans_x, y_data,
-                            reduce_num, reducer, reducer.initial(), stream);
+    if (is_mean) {
+      reduce_var = reduce_var / static_cast<MPType>(mean_div);
+    }
+    Ty result = static_cast<Ty>(reduce_var);
+    kps::WriteData<Ty, 1, 1, true>(y + store_offset + idx, &result, dim.rem_x);
+  }
+}
 
-  CHECK_CUDA_ERROR(cudaFree(temp_storage));
+// when reduce_type == kReduceLastDim this struct will be used
+// for higher performance
+struct OneDimIndexCal {
+  int stride;
+
+  explicit OneDimIndexCal(int stride) : stride(stride) {}
+
+  __device__ inline int operator()(int index) const { return index * stride; }
+};
+
+template <typename Tx, typename Ty, typename MPType, typename ReduceOp,
+          typename TransformOp>
+static void LaunchReduceKernel(const Tx *x_data, Ty *y_data,
+                               const ReduceOp &reducer,
+                               const TransformOp &transform, MPType init,
+                               const cudaStream_t &stream,
+                               ReduceConfig<Ty> config, bool is_mean = false) {
+
+  // 1. when reduce_dim.size() == 1 and reduce_dim[0] == x_dim.size() - 1, or
+  // 2. when reduce_dim.size() != 1 and reduce_dim.size() != x_dim.size(), this
+  // function will be used
+
+  NameGuard g("LaunchReduceKernel");
+  if (config.reduce_type == kReduceLastDim) {
+    NameGuard g("kReduceLastDim");
+    // dims (Y, X), strides (X, 1) X is reduce dim, Y is left dim
+
+    // rank 2, reduce last dim
+    // rank 3, reduce last dim
+
+    // dims (4, 25), reduce_dims (1);
+    // dims (4, 5, 5), reduce dims (2)
+    // reduce_lst_dim = 1, should_reduce_agin =  0
+
+    // dims (Y, X), strides (X, 1) X is reduce dim, Y is left dim
+    int stride_reduce = 1;
+    int stride_left = config.reduce_num; // reduce_num == X
+
+    // for higher performance
+    // from index in src ptr, to (y,x) index in matrix
+    // reduce_index_calculator for x, left_index_calculator for y
+    auto reduce_index_calculator = OneDimIndexCal(stride_reduce);
+    auto left_index_calculator = OneDimIndexCal(stride_left);
+
+    kps::DimConfig dim =
+        kps::DimConfig(config.grid.x, config.grid.y, config.grid.z,
+                       config.block.x, config.block.y, 0);
+    // reducing along X axis, compute remaindor when blockDim.x
+    dim.SetRem(config.reduce_num % config.block.x, 0, 0);
+    std::cout << dim;
+
+    auto grids = config.grid;
+    auto blocks = config.block;
+
+    // only OneDimIndexCal diff
+    ReduceAnyKernel<Tx, Ty, MPType, ReduceOp, TransformOp, OneDimIndexCal>
+        <<<grids, blocks, 0, stream>>>(
+            x_data, config.output_data, reducer, transform, init,
+            config.reduce_num, config.left_num, config.reduce_last_dim,
+            reduce_index_calculator, left_index_calculator, dim,
+            is_mean && (!config.should_reduce_again));
+  } else {
+    NameGuard g("kReduceFirstDim");
+    // dims (Y, X), strides (X, 1), (Y) is reduce dim, X is left dim
+
+    // 多少个reduce dim
+    int reduce_rank = config.reduce_strides.size();
+    // 剩余多少个dim不变
+    int left_rank = config.left_strides.size();
+
+    // from index in src ptr, to (y,x) index in matrix
+    // reduce_index_calculator for y, left_index_calculator for x
+    auto reduce_index_calculator =
+        IndexCalculator(reduce_rank, config.reduce_dim, config.reduce_strides,
+                        config.x_strides);
+    auto left_index_calculator = IndexCalculator(
+        left_rank, config.left_dim, config.left_strides, config.x_strides);
+
+    kps::DimConfig dim =
+        kps::DimConfig(config.grid.x, config.grid.y, config.grid.z,
+                       config.block.x, config.block.y, 0);
+    // reducing along X axis, compute remaindor when blockDim.x
+    dim.SetRem(config.reduce_num % config.block.x, 0, 0);
+    std::cout << dim;
+
+    auto grids = config.grid;
+    auto blocks = config.block;
+
+    // only IndexCalculator diff
+    ReduceAnyKernel<Tx, Ty, MPType, ReduceOp, TransformOp, IndexCalculator>
+        <<<grids, blocks, 0, stream>>>(
+            x_data, config.output_data, reducer, transform, init,
+            config.reduce_num, config.left_num, config.reduce_last_dim,
+            reduce_index_calculator, left_index_calculator, dim,
+            is_mean && (!config.should_reduce_again));
+  }
+
+  if (config.should_reduce_again) {
+    NameGuard g("should_reduce_again");
+    dim3 block;
+    dim3 grid;
+    if (config.reduce_last_dim) {
+      block = dim3(32, 1, 1);
+      grid = dim3(kps::details::DivUp(config.left_num, 32), 1, 1);
+    } else {
+      block = dim3(config.block.x, 1, 1);
+      grid = dim3(config.grid.x, 1, config.grid.z);
+    }
+
+    kps::DimConfig dim =
+        kps::DimConfig(grid.x, grid.y, grid.z, block.x, config.grid.y, 0);
+    dim.SetRem(config.left_num % block.x, 0, 0);
+
+    auto grid_size = grid;
+    auto block_size = block;
+
+    // tmp data to out
+    ReduceHigherDimKernel<Ty, Ty, MPType, ReduceOp,
+                          kps::IdentityFunctor<Ty, MPType>>
+        <<<grid_size, block_size, 0, stream>>>(
+            config.output_data, y_data, reducer,
+            kps::IdentityFunctor<Ty, MPType>(), init, config.grid.y,
+            config.left_num, config.grid.y, dim, config.reduce_num, is_mean);
+  }
 }
 
 template <typename Tx, typename Ty, template <typename> class ReduceOp,
@@ -1102,23 +2116,18 @@ void ReduceKernel(const cudaStream_t &stream, const Tx *x_data, Ty *y_data,
 
   auto config = ReduceConfig<Ty>(origin_reduce_dims, x_dim);
   config.Run();
+  config.SetOutputData(y_data);
   std::cout << config;
 
-  int numel = NumElements(x_dim);
-  bool use_cub_reduce{config.reduce_num == numel};
-  assert(use_cub_reduce);
+  using MPType = Ty;
+  auto reducer = ReduceOp<MPType>();
 
-  if (use_cub_reduce) {
-    if (is_mean) {
-      using Div = kps::DivideFunctor<Tx>;
-      CubTensorReduceImpl<Tx, Ty, ReduceOp, Div>(
-          x_data, y_data, Div(config.reduce_num), config.reduce_num, stream);
-    } else {
-      CubTensorReduceImpl<Tx, Ty, ReduceOp, TransformOp>(
-          x_data, y_data, transform, config.reduce_num, stream);
-    }
-    return;
-  }
+  // when reduce_dim.size() == 1 and reduce_dim[0] == x_dim.size() - 1, or
+  // when reduce_dim.size() != 1 and reduce_dim.size() != x_dim.size(), this
+  // function will be used
+  LaunchReduceKernel<Tx, Ty, MPType, ReduceOp<MPType>, TransformOp>(
+      x_data, y_data, reducer, transform, reducer.initial(), stream, config,
+      is_mean);
 }
 
 // create random vec
@@ -1195,14 +2204,15 @@ void PrintLatency(float latency) {
             << " ms" << std::endl;
 }
 
-int main(void) {
-  constexpr uint32_t n{100};
+int case1(void) {
+  constexpr uint32_t i{4}, j{25};
+  constexpr uint32_t n{i * j};
 
-  constexpr uint32_t num_repeats{100};
-  constexpr uint32_t num_warmups{10};
+  constexpr uint32_t num_repeats{1};
+  constexpr uint32_t num_warmups{0};
 
   std::vector<float> vec_in(n, 1.0);
-  std::vector<float> vec_out(1);
+  std::vector<float> vec_out(i);
 
   const float *h_input{vec_in.data()};
   float *h_output{vec_out.data()};
@@ -1210,41 +2220,22 @@ int main(void) {
   float *d_input{nullptr};
   float *d_output{nullptr};
 
-  CHECK_CUDA_ERROR(cudaMalloc(&d_input, n * sizeof(float)));
-  CHECK_CUDA_ERROR(cudaMalloc(&d_output, 1 * sizeof(float)));
+  CHECK_CUDA_ERROR(cudaMalloc(&d_input, vec_in.size() * sizeof(float)));
+  CHECK_CUDA_ERROR(cudaMalloc(&d_output, vec_out.size() * sizeof(float)));
 
-  CHECK_CUDA_ERROR(
-      cudaMemcpy(d_input, h_input, sizeof(float) * n, cudaMemcpyHostToDevice));
+  CHECK_CUDA_ERROR(cudaMemcpy(d_input, h_input, sizeof(float) * vec_in.size(),
+                              cudaMemcpyHostToDevice));
 
   cudaStream_t stream;
   CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
 
-  // cast1. SumReduce, x = ones([10,]), reduce_dims = (0,)
+  // cast. SumReduce, x = ones([4, 25]), reduce_dims = (1)
   {
     using T = float;
-    std::vector<int> dims{n};
-    std::vector<int> reduce_dims{0};
-    std::function<void(cudaStream_t &)> const function{
-        std::bind(ReduceKernel<T, T, kps::AddFunctor, kps::IdentityFunctor<T>>,
-                  std::placeholders::_1, d_input, d_output, dims, reduce_dims,
-                  kps::IdentityFunctor<T>(), false)};
-
-    float const latency{
-        MeasurePerformance(function, stream, num_repeats, num_warmups)};
-    PrintLatency(latency);
-
-    CHECK_CUDA_ERROR(cudaMemcpy(h_output, d_output, sizeof(float) * 1,
-                                cudaMemcpyDeviceToHost));
-
-    assert(static_cast<uint32_t>(vec_out[0]) == n);
-  }
-
-  // cast2. SumReduce, x = ones([4, 25]), reduce_dims = (0,1)
-  {
-    using T = float;
-    std::vector<int> dims{4, 25};
+    std::vector<int> dims{i, j};
     assert(NumElements(dims) == n);
-    std::vector<int> reduce_dims{0, 1};
+    std::vector<int> reduce_dims{1};
+
     std::function<void(cudaStream_t &)> const function{
         std::bind(ReduceKernel<T, T, kps::AddFunctor, kps::IdentityFunctor<T>>,
                   std::placeholders::_1, d_input, d_output, dims, reduce_dims,
@@ -1254,13 +2245,79 @@ int main(void) {
         MeasurePerformance(function, stream, num_repeats, num_warmups)};
     PrintLatency(latency);
 
-    CHECK_CUDA_ERROR(cudaMemcpy(h_output, d_output, sizeof(float) * 1,
+    CHECK_CUDA_ERROR(cudaMemcpy(h_output, d_output,
+                                sizeof(float) * vec_out.size(),
                                 cudaMemcpyDeviceToHost));
 
-    assert(static_cast<uint32_t>(vec_out[0]) == n);
+    for (int i{0}; i < vec_out.size(); ++i) {
+      assert(static_cast<uint32_t>(vec_out[i]) == j);
+    }
   }
 
   CHECK_CUDA_ERROR(cudaFree(d_input));
   CHECK_CUDA_ERROR(cudaFree(d_output));
   CHECK_CUDA_ERROR(cudaStreamDestroy(stream));
+  return 0;
+}
+
+int case2(void) {
+  constexpr uint32_t i{4}, j{5}, k{5};
+  constexpr uint32_t n{i * j * k};
+
+  constexpr uint32_t num_repeats{1};
+  constexpr uint32_t num_warmups{0};
+
+  std::vector<float> vec_in(n, 1.0);
+  std::vector<float> vec_out(i * j);
+
+  const float *h_input{vec_in.data()};
+  float *h_output{vec_out.data()};
+
+  float *d_input{nullptr};
+  float *d_output{nullptr};
+
+  CHECK_CUDA_ERROR(cudaMalloc(&d_input, vec_in.size() * sizeof(float)));
+  CHECK_CUDA_ERROR(cudaMalloc(&d_output, vec_out.size() * sizeof(float)));
+
+  CHECK_CUDA_ERROR(cudaMemcpy(d_input, h_input, sizeof(float) * vec_in.size(),
+                              cudaMemcpyHostToDevice));
+
+  cudaStream_t stream;
+  CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
+
+  // cast. SumReduce, x = ones([4, 5, 5]), reduce_dims = (2)
+  {
+    using T = float;
+    std::vector<int> dims{i, j, k};
+    assert(NumElements(dims) == n);
+    std::vector<int> reduce_dims{2};
+
+    std::function<void(cudaStream_t &)> const function{
+        std::bind(ReduceKernel<T, T, kps::AddFunctor, kps::IdentityFunctor<T>>,
+                  std::placeholders::_1, d_input, d_output, dims, reduce_dims,
+                  kps::IdentityFunctor<T>(), false)};
+
+    float const latency{
+        MeasurePerformance(function, stream, num_repeats, num_warmups)};
+    PrintLatency(latency);
+
+    CHECK_CUDA_ERROR(cudaMemcpy(h_output, d_output,
+                                sizeof(float) * vec_out.size(),
+                                cudaMemcpyDeviceToHost));
+
+    for (int i{0}; i < vec_out.size(); ++i) {
+      assert(static_cast<uint32_t>(vec_out[i]) == k);
+    }
+  }
+
+  CHECK_CUDA_ERROR(cudaFree(d_input));
+  CHECK_CUDA_ERROR(cudaFree(d_output));
+  CHECK_CUDA_ERROR(cudaStreamDestroy(stream));
+  return 0;
+}
+
+int main(void) {
+  case1();
+  case2();
+  return 0;
 }
