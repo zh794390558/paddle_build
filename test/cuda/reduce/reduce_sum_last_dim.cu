@@ -2205,7 +2205,8 @@ void PrintLatency(float latency) {
 }
 
 int case1(void) {
-  constexpr uint32_t i{4}, j{25};
+  std::cout << "case1" << std::endl;
+  constexpr uint32_t i{64}, j{1000};
   constexpr uint32_t n{i * j};
 
   constexpr uint32_t num_repeats{1};
@@ -2229,7 +2230,7 @@ int case1(void) {
   cudaStream_t stream;
   CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
 
-  // cast. SumReduce, x = ones([4, 25]), reduce_dims = (1)
+  // cast. SumReduce, x = ones([64, 4096]), reduce_dims = (1)
   {
     using T = float;
     std::vector<int> dims{i, j};
@@ -2261,7 +2262,8 @@ int case1(void) {
 }
 
 int case2(void) {
-  constexpr uint32_t i{4}, j{5}, k{5};
+  std::cout << "case2" << std::endl;
+  constexpr uint32_t i{64}, j{10}, k{100};
   constexpr uint32_t n{i * j * k};
 
   constexpr uint32_t num_repeats{1};
@@ -2285,7 +2287,7 @@ int case2(void) {
   cudaStream_t stream;
   CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
 
-  // cast. SumReduce, x = ones([4, 5, 5]), reduce_dims = (2)
+  // cast. SumReduce, x = ones([64, 64, 64]), reduce_dims = (2)
   {
     using T = float;
     std::vector<int> dims{i, j, k};
@@ -2318,6 +2320,7 @@ int case2(void) {
 
 int main(void) {
   case1();
+  // cudaDeviceSynchronize();
   case2();
   return 0;
 }
