@@ -130,6 +130,11 @@ inline std::ostream &operator<<(std::ostream &os, const std::vector<T> &vec) {
   return os;
 }
 
+inline std::ostream& operator<<(std::ostream& os, const dim3& dim){
+  os << "(" << dim.x << "," << dim.y << "," << dim.z << ")" << std::endl;
+  return os;
+}
+
 template <typename T> int NumElements(const std::vector<T> &dims) {
   int numel =
       std::accumulate(dims.begin(), dims.end(), 1, std::multiplies<int>());
@@ -2072,7 +2077,7 @@ static void LaunchReduceKernel(const Tx *x_data, Ty *y_data,
                                const ReduceOp &reducer,
                                const TransformOp &transform, MPType init,
                                const cudaStream_t &stream,
-                               ReduceConfig<Ty> config, bool is_mean = false) {
+                               ReduceConfig<Ty>& config, bool is_mean = false) {
 
   // 1. when reduce_dim.size() == 1 and reduce_dim[0] == x_dim.size() - 1, or
   // 2. when reduce_dim.size() != 1 and reduce_dim.size() != x_dim.size(), this
@@ -2118,7 +2123,7 @@ static void LaunchReduceKernel(const Tx *x_data, Ty *y_data,
             reduce_index_calculator, left_index_calculator, dim,
             is_mean && (!config.should_reduce_again));
   } else {
-    NameGuard g("kReduceFirstDim");
+    NameGuard g("kReduceHighDim");
     // dims (Y, X), strides (X, 1), (Y) is reduce dim, X is left dim
 
     // 多少个reduce dim
@@ -2168,6 +2173,7 @@ static void LaunchReduceKernel(const Tx *x_data, Ty *y_data,
     kps::DimConfig dim =
         kps::DimConfig(grid.x, grid.y, grid.z, block.x, config.grid.y, 0);
     dim.SetRem(config.left_num % block.x, 0, 0);
+    std::cout << dim;
 
     // tmp data to out
     ReduceHigherDimKernel<Ty, Ty, MPType, ReduceOp,
@@ -2278,7 +2284,7 @@ void PrintLatency(float latency) {
 
 int case1(void) {
   std::cout << "case1" << std::endl;
-  constexpr uint32_t i{64}, j{1000};
+  constexpr uint32_t i{64}, j{4096};
   constexpr uint32_t n{i * j};
 
   constexpr uint32_t num_repeats{1};
@@ -2335,7 +2341,7 @@ int case1(void) {
 
 int case2(void) {
   std::cout << "case2" << std::endl;
-  constexpr uint32_t i{64}, j{10}, k{100};
+  constexpr uint32_t i{64}, j{64}, k{100};
   constexpr uint32_t n{i * j * k};
 
   constexpr uint32_t num_repeats{1};
