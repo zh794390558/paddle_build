@@ -1,3 +1,4 @@
+// 先看ReduceHighDim的逻辑。
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -1473,11 +1474,16 @@ template <typename Ty, int dev_id = 0> struct ReduceConfig {
   // If should_reduce_again, we need malloc temp space for temp data
   void SetOutputData(Ty *y_data) {
     NameGuard g("SetOutputData");
+
     if (should_reduce_again) {
+      // (reduce_num, left_num) split to num(grid.y) of  (BlockSize, left_num)
+      // then Reduce multi (grid.y, left_num) to (1, left_num)
       int64_t size{
           static_cast<int64_t>(left_num * grid.z * grid.y * sizeof(Ty))};
+
       cudaMalloc(&output_data, size);
       owned_output = true;
+
       std::cout << "should_reduce_again: " << size << std::endl;
     } else {
       output_data = y_data;
@@ -2163,16 +2169,13 @@ static void LaunchReduceKernel(const Tx *x_data, Ty *y_data,
         kps::DimConfig(grid.x, grid.y, grid.z, block.x, config.grid.y, 0);
     dim.SetRem(config.left_num % block.x, 0, 0);
 
-    auto grid_size = grid;
-    auto block_size = block;
-
     // tmp data to out
     ReduceHigherDimKernel<Ty, Ty, MPType, ReduceOp,
                           kps::IdentityFunctor<Ty, MPType>>
-        <<<grid_size, block_size, 0, stream>>>(
+        <<<grid, block, 0, stream>>>(
             config.output_data, y_data, reducer,
-            kps::IdentityFunctor<Ty, MPType>(), init, config.grid.y,
-            config.left_num, config.grid.y, dim, config.reduce_num, is_mean);
+            kps::IdentityFunctor<Ty, MPType>(), init, config.grid.y /*reduce_num*/,
+            config.left_num/*left_num*/, config.grid.y /*block_size*/, dim, config.reduce_num /*mean_div*/, is_mean);
   }
 }
 
