@@ -467,7 +467,8 @@ __device__ __forceinline__ T BlockXReduce(T val, ReduceOp reducer) {
         (kWarpSize != 32) ? ((kWarpSize == 64) ? 6 : 5) : 5;
     // NumWarps = blockDim.x / WarpSize
     block_dim_x = blockDim.x >> rshift_val;
-    printf("BlockXReduce: NumWarps %d, blockDim.x %d, warpSize %d\n", block_dim_x, blockDim.x, kWarpSize);
+    printf("BlockXReduce: NumWarps %d, blockDim.x %d, warpSize %d\n",
+           block_dim_x, blockDim.x, kWarpSize);
     // lane in Warp
     int lane = threadIdx.x & (kWarpSize - 1);
     int tid = threadIdx.y * blockDim.x + threadIdx.x;
@@ -483,10 +484,12 @@ __device__ __forceinline__ T BlockXReduce(T val, ReduceOp reducer) {
     // block Index
     int bid = threadIdx.y;
     // load val for last WarpReduce
-    // block_dim_x 可能 < lane，会读到无用的值。 
-    // 但在下面的for循环warp规约时，由block_dim_x限制规约次数，所以 thread 0 不会计算错误，且是最终期望结果。
+    // block_dim_x 可能 < lane，会读到无用的值。
+    // 但在下面的for循环warp规约时，由block_dim_x限制规约次数，所以 thread 0
+    // 不会计算错误，且是最终期望结果。
     val = shared[bid * block_dim_x + lane];
-    printf("BlockXReduce: bid %d, block_dim_x %d, lane %d\n", bid, block_dim_x, lane);
+    printf("BlockXReduce: bid %d, block_dim_x %d, lane %d\n", bid, block_dim_x,
+           lane);
   }
 
   // 根据 block_dim_x 判断规约几次
@@ -830,8 +833,8 @@ __device__ __forceinline__ void ReadData(Ty *dst, const Tx *__restrict__ src,
  * reduce_last_dim: Used to indicate whether the dimension of reduce contains
  * the lowest dimension.
  */
-template <typename Tx, typename Ty, int NX, int NY, int Rank/*UNUSED*/, typename IndexCal,
-          typename Functor, bool IsBoundary = false>
+template <typename Tx, typename Ty, int NX, int NY, int Rank /*UNUSED*/,
+          typename IndexCal, typename Functor, bool IsBoundary = false>
 __device__ __forceinline__ void
 ReadDataReduce(Ty *dst, const Tx *__restrict__ src, int block_offset,
                const IndexCal &index_cal, int size_nx, int size_ny,
@@ -867,7 +870,7 @@ ReadDataReduce(Ty *dst, const Tx *__restrict__ src, int block_offset,
       }
       uint32_t index_src = index_cal(thread_offset + block_offset);
       dst[ny] = static_cast<Ty>(func(src[index_src]));
-      thread_offset += stride_ny /*stride*/ ;
+      thread_offset += stride_ny /*stride*/;
     }
   } else {
 #pragma unroll
@@ -1055,7 +1058,7 @@ Reduce(T *out, const T *in, ReduceFunctor reducer, bool reduce_last_dim) {
       }
     }
 
-  } else { 
+  } else {
     // kLocalMode, reduce in registor
     // in -> out
     // in NY x NX, reduce along x dim
@@ -1391,7 +1394,6 @@ template <bool ReduceLastDim = false> struct ReduceIndexMapping {
   __device__ int GetLoopSize() { return 1; }
 };
 
-
 template <typename Ty, int dev_id = 0> struct ReduceConfig {
   ReduceConfig(const std::vector<int> &origin_reduce_dims,
                const std::vector<int> &origin_x_dim)
@@ -1675,7 +1677,6 @@ private:
       reduce_num_per_thread = kps::details::DivUp(reduce_num, block_dim->y);
     }
 
-
     // int device_id = phi::backends::gpu::GetCurrentDeviceId();
     // int max_mp = phi::backends::gpu::GetGPUMultiProcessors(device_id);
     // int max_threads_per_mp =
@@ -1723,13 +1724,11 @@ private:
     NameGuard g("SetBlockDimForHigher");
     // grid_dim (left_num, 1, 1)
 
-
     int last_dim_num = x_dim.back();
     // Update left_num
     int grid_z = left_num / last_dim_num; // always 1?
     left_num = last_dim_num;
     grid_dim->z = grid_z;
-
 
     // int device_id = phi::backends::gpu::GetCurrentDeviceId();
     // int max_mp = phi::backends::gpu::GetGPUMultiProcessors(device_id);
@@ -1748,7 +1747,6 @@ private:
     // num of blockDim.x
     grid_dim->x = kps::details::DivUp(left_num, block_dim->x);
 
-
     // fix blocking_size, compute gradDim.y
     int num_block = (max_threads / left_num);
     blocking_size = reduce_num;
@@ -1765,7 +1763,7 @@ private:
       std::cout << "should_reduce_again: " << should_reduce_again << std::endl;
 
       // reduce on Y dim, num of blocking_size
-      grid_dim->y = kps::details::DivUp(reduce_num, blocking_size); 
+      grid_dim->y = kps::details::DivUp(reduce_num, blocking_size);
     }
   }
 
@@ -1775,7 +1773,7 @@ private:
     NameGuard g("SetBlockDim");
     dim3 block_dim(1, 1, 1);
     dim3 grid_dim(left_num, 1, 1); // when reduceHigh, left_num for X dim
-    blocking_size = reduce_num; // blockDim
+    blocking_size = reduce_num;    // blockDim
 
     if (reduce_type == ReduceType::kReduceHigherDim) {
       SetBlockDimForHigher(&block_dim, &grid_dim);
@@ -1855,7 +1853,6 @@ ReduceAnyKernel(const Tx *x, Ty *y, ReduceOp reducer, TransformOp transformer,
            left_idx, block.BlockIdX(), block.BlockDimY(), THREAD_ID_Y);
     stride_left = 1;
 
-
     // CUDA 时，一次处理所有的Y，不需要在Y上循环
     // left_num - left_idx > 0, loop_left = 1
     // left_num - left_idx == 0, loop_left = 0
@@ -1866,7 +1863,6 @@ ReduceAnyKernel(const Tx *x, Ty *y, ReduceOp reducer, TransformOp transformer,
            "%d\n",
            left_num, left_idx, loop_left, block.GetLoopSize());
 
-
     // block offset and stride in X dim
     // block.BlockIdY() == index num of blockDim.x
     input_idx = block.BlockIdY() * block.BlockDimX();
@@ -1876,7 +1872,6 @@ ReduceAnyKernel(const Tx *x, Ty *y, ReduceOp reducer, TransformOp transformer,
     stride = block.GridDimY() * block.BlockDimX();
     printf("reduce last dim: stride %d, blockDim.y %d, blockDim.x %d\n", stride,
            block.GridDimY(), block.BlockDimX());
-
 
     // store reduce X result in (left_num, block_num_x)
     // offset for out, flag for left_index < left_num
@@ -1932,47 +1927,55 @@ ReduceAnyKernel(const Tx *x, Ty *y, ReduceOp reducer, TransformOp transformer,
 
     // load REDUCE_VEC_SIZE data once, and then compute
     int bound = reduce_num - (REDUCE_VEC_SIZE - 1) * stride;
-    printf("ReduceAnyKernel: bound %d, reduce_num %d, stride %d\n", bound, reduce_num, stride);
+    printf("ReduceAnyKernel: bound %d, reduce_num %d, stride %d\n", bound,
+           reduce_num, stride);
 
     input_idx = input_idx_tmp;
 
-    printf("ReduceAnyKernel: input_idx %d, block_size %d,  input_idx + block_size < bound %d, REDUCE_VEC_SIZE * stride %d\n", input_idx, block_size, input_idx + block_size < bound,  REDUCE_VEC_SIZE * stride);
+    printf("ReduceAnyKernel: input_idx %d, block_size %d,  input_idx + "
+           "block_size < bound %d, REDUCE_VEC_SIZE * stride %d\n",
+           input_idx, block_size, input_idx + block_size < bound,
+           REDUCE_VEC_SIZE * stride);
     // 1.0, evenly divisible reduce. Reduce gloabl problem into grid problem
     for (; input_idx + block_size < bound;
          input_idx += REDUCE_VEC_SIZE * stride) {
       printf("ReduceAnyKernel: in bound\n");
       // (VecSize, 1)， interleave read, not mem friend
       kps::ReadDataReduce<Tx, Tx, 1, REDUCE_VEC_SIZE, 1, Calculator,
-                          TransformOp, false/*IsBoundary*/>(
-          &input_compute[0], input, input_idx, reduce_index_calculator, 1/*size_nx*/,
-          reduce_num/*size_ny*/, 1/*stride_x*/, stride/*stride_y*/, transformer, reduce_last_dim);
+                          TransformOp, false /*IsBoundary*/>(
+          &input_compute[0], input, input_idx, reduce_index_calculator,
+          1 /*size_nx*/, reduce_num /*size_ny*/, 1 /*stride_x*/,
+          stride /*stride_y*/, transformer, reduce_last_dim);
 
-      // (NY,NX) -> (NY,1), e.g. (1, VecSize) -> (1,1)， local reduce, mem friend
+      // (NY,NX) -> (NY,1), e.g. (1, VecSize) -> (1,1)， local reduce, mem
+      // friend
       kps::Reduce<MPType, REDUCE_VEC_SIZE, 1, ReduceOp,
                   kps::details::ReduceMode::kLocalMode>(
           &reduce_var, &input_compute[0], reducer, reduce_last_dim);
     }
 
     // 1.1 remainder global reduce
-    // reg init. not needed, since ReadDataReduce using assignment, not depend on old val.
+    // reg init. not needed, since ReadDataReduce using assignment, not depend
+    // on old val.
     kps::Init<MPType, REDUCE_VEC_SIZE>(&input_compute[0], init);
 
     // read REDUCE_VEC_SIZE into col vector (VEC_SIZE, 1)
-    kps::ReadDataReduce<Tx, MPType, 1 /*NX*/, REDUCE_VEC_SIZE /*NY*/, 1/*Rank*/, Calculator,
-                        TransformOp, true>(
-        &input_compute[0], input, input_idx /*block_offset*/, reduce_index_calculator, 1 /*size_nx*/,
-        reduce_num - input_idx /*size_ny*/, 1 /*stride_nx*/, stride /*stride_ny*/, transformer, reduce_last_dim);
+    kps::ReadDataReduce<Tx, MPType, 1 /*NX*/, REDUCE_VEC_SIZE /*NY*/,
+                        1 /*Rank*/, Calculator, TransformOp, true>(
+        &input_compute[0], input, input_idx /*block_offset*/,
+        reduce_index_calculator, 1 /*size_nx*/,
+        reduce_num - input_idx /*size_ny*/, 1 /*stride_nx*/,
+        stride /*stride_ny*/, transformer, reduce_last_dim);
 
     // LocalReduce, given (NY, NX)，reduce on x axis, has NY result
-    kps::Reduce<MPType, REDUCE_VEC_SIZE/*NX*/, 1/*NY*/, ReduceOp,
+    kps::Reduce<MPType, REDUCE_VEC_SIZE /*NX*/, 1 /*NY*/, ReduceOp,
                 kps::details::ReduceMode::kLocalMode>(
         &reduce_var, &input_compute[0], reducer, reduce_last_dim);
 
-
-
     // Block Reduce
-    kps::Reduce<MPType, 1 /*NX*/, 1 /*NY*/, ReduceOp, kps::details::kGlobalMode>(
-        &reduce_var, &reduce_var, reducer, reduce_last_dim);
+    kps::Reduce<MPType, 1 /*NX*/, 1 /*NY*/, ReduceOp,
+                kps::details::kGlobalMode>(&reduce_var, &reduce_var, reducer,
+                                           reduce_last_dim);
 
     if (is_mean) {
       // ReduceMean
@@ -1984,7 +1987,6 @@ ReduceAnyKernel(const Tx *x, Ty *y, ReduceOp reducer, TransformOp transformer,
     kps::details::WriteData<Ty>(y + store_offset + i, &result,
                                 static_cast<int>(need_store));
   }
-
 }
 
 template <typename Tx, typename Ty, typename MPType, typename ReduceOp,
