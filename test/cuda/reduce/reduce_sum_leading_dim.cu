@@ -23,6 +23,9 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
+// Use (void) to silence unused warnings.
+#define assertm(exp, msg) assert(((void)msg, exp))
+
 #if defined(_WIN32)
 #define UNUSED
 #define __builtin_expect(EXP, C) (EXP)
@@ -109,12 +112,11 @@ void checkCuBlas(T err, const char *const func, const char *const file,
 struct NameGuard {
 
   NameGuard(const std::string &name) : name_(name) {
-    std::cout << "---" << name_ << "---" << std::endl;
+    std::cout << ">>>" << name_ << "<<<" << std::endl;
   }
 
   ~NameGuard() {
-    std::cout << "---" << name_ << "---" << std::endl;
-    std::cout << std::endl;
+    std::cout << "<<<" << name_ << ">>>" << std::endl;
   }
 
   std::string name_;
@@ -154,7 +156,7 @@ enum ReduceMode { kGlobalMode, kLocalMode };
 
 // Aligned vector generates vectorized load/store on CUDA.
 template <typename T, int VecSize>
-struct alignas(sizeof(T) * VecSize) AlignedVector {
+struct alignas(sizeof(T) * VecSize) AlignedVector{
   T val[VecSize];
 
   HOSTDEVICE inline const T &operator[](int i) const { return val[i]; }
@@ -2283,7 +2285,7 @@ void PrintLatency(float latency) {
 }
 
 int case1(void) {
-  // (64, 4091), reduce(1), (64, 1)
+  // (64, 4096), reduce (0)
   std::cout << "case1" << std::endl;
   constexpr uint32_t i{64}, j{4096};
   constexpr uint32_t n{i * j};
@@ -2292,7 +2294,7 @@ int case1(void) {
   constexpr uint32_t num_warmups{0};
 
   std::vector<float> vec_in(n, 1.0);
-  std::vector<float> vec_out(i);
+  std::vector<float> vec_out(j);
 
   const float *h_input{vec_in.data()};
   float *h_output{vec_out.data()};
@@ -2309,12 +2311,12 @@ int case1(void) {
   cudaStream_t stream;
   CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
 
-  // cast. SumReduce, x = ones([64, 4096]), reduce_dims = (1)
+  // cast. SumReduce, x = ones([64, 4096]), reduce_dims = (0)
   {
     using T = float;
     std::vector<int> dims{i, j};
     assert(NumElements(dims) == n);
-    std::vector<int> reduce_dims{1};
+    std::vector<int> reduce_dims{0};
 
     std::function<void(cudaStream_t &)> const function{
         std::bind(ReduceKernel<T, T, kps::AddFunctor, kps::IdentityFunctor<T>>,
@@ -2329,8 +2331,8 @@ int case1(void) {
                                 sizeof(float) * vec_out.size(),
                                 cudaMemcpyDeviceToHost));
 
-    for (int i{0}; i < vec_out.size(); ++i) {
-      assert(static_cast<uint32_t>(vec_out[i]) == j);
+    for (int m{0}; m < vec_out.size(); ++m) {
+      assert(static_cast<uint32_t>(vec_out[m]) == i);
     }
   }
 
@@ -2341,7 +2343,7 @@ int case1(void) {
 }
 
 int case2(void) {
-  // (64, 64, 100), reduce (2), (64, 64, 1) 
+  // (64, 64, 100), reduce (0, 1)
   std::cout << "case2" << std::endl;
   constexpr uint32_t i{64}, j{64}, k{100};
   constexpr uint32_t n{i * j * k};
@@ -2350,7 +2352,7 @@ int case2(void) {
   constexpr uint32_t num_warmups{0};
 
   std::vector<float> vec_in(n, 1.0);
-  std::vector<float> vec_out(i * j);
+  std::vector<float> vec_out(k);
 
   const float *h_input{vec_in.data()};
   float *h_output{vec_out.data()};
@@ -2367,12 +2369,12 @@ int case2(void) {
   cudaStream_t stream;
   CHECK_CUDA_ERROR(cudaStreamCreate(&stream));
 
-  // cast. SumReduce, x = ones([64, 64, 64]), reduce_dims = (2)
+  // cast. SumReduce, x = ones([64, 64, 64]), reduce_dims = (0,1)
   {
     using T = float;
     std::vector<int> dims{i, j, k};
     assert(NumElements(dims) == n);
-    std::vector<int> reduce_dims{2};
+    std::vector<int> reduce_dims{0, 1};
 
     std::function<void(cudaStream_t &)> const function{
         std::bind(ReduceKernel<T, T, kps::AddFunctor, kps::IdentityFunctor<T>>,
@@ -2387,8 +2389,8 @@ int case2(void) {
                                 sizeof(float) * vec_out.size(),
                                 cudaMemcpyDeviceToHost));
 
-    for (int i{0}; i < vec_out.size(); ++i) {
-      assert(static_cast<uint32_t>(vec_out[i]) == k);
+    for (int n{0}; n < vec_out.size(); ++n) {
+      assert(static_cast<uint32_t>(vec_out[n]) == i*j);
     }
   }
 
@@ -2400,7 +2402,6 @@ int case2(void) {
 
 int main(void) {
   case1();
-  // cudaDeviceSynchronize();
   case2();
   return 0;
 }
